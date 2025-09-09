@@ -1,0 +1,203 @@
+.content-wrapper {
+    background: #fff;
+    padding: 15px;
+}
+
+.content-wrapper input,
+.content-wrapper textarea,
+.content-wrapper select,
+.select2-container .select2-selection--single {
+    background: #ededed;
+    border: 1px solid #ddd;
+    margin-bottom: 10px;
+    font-size: 11px;
+    border-radius: 0px;
+    box-shadow: 0px 0px 10px #e4e4e4;
+    padding-left: 5px;
+}
+
+.content-wrapper input[readonly]:focus{
+    background: #f6fde4;
+}
+
+.content-wrapper input[readonly]{
+    background: #f6fde4;
+}
+
+.content-wrapper input:focus,
+.content-wrapper textarea:focus,
+.content-wrapper select:focus .select2-container .select2-selection--single:focus {
+    background: #fff;
+    border: 1px solid #ddd;
+    margin-bottom: 10px;
+    font-size: 11px;
+    border-radius: 0px;
+    box-shadow: 0px 0px 10px #e4e4e4;
+    padding-left: 5px;
+}
+
+.content-wrapper .form-select,
+.content-wrapper input {
+    height: 22px;
+    line-height: 12px;
+    padding: 0px 0px 0px 5px;
+}
+
+.select2-container .select2-selection--single {
+    height: 22px;
+}
+
+.form-group.arrow_class:after {
+    content: '<>';
+    font: 13px "Consolas", monospace;
+    color: #fff;
+    transform: rotate(90deg);
+    right: 3px;
+    top: 4px;
+    padding: 0 1px 0 1px;
+    position: absolute;
+    pointer-events: none;
+    background: #005def;
+    border-radius: 3px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow b {
+    display: none;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: #212529;
+    line-height: 20px;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.select2-container--open .select2-dropdown {
+    top: -10px;
+    border: 1px solid #ddd;
+}
+
+.select2-results__option {
+    font-size: 11px;
+}
+
+.content-wrapper .form-group label {
+    width: 40%;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.content-wrapper .form-group {
+    display: flex;
+    position: relative;
+}
+
+.content-wrapper .form-check,
+.content-wrapper .date input,
+.select2-container {
+    padding-left: 0;
+    width: 100%!important;
+}
+
+.content-wrapper .date input {
+    padding-left: 5px;
+    padding-right: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.content-wrapper .form-check>label {
+    width: auto;
+}
+
+.content-wrapper .form-check input {
+    height: auto;
+    background: transparent;
+    margin-right: 5px;
+    margin-top: 1px;
+}
+
+.content-wrapper .form-group .arrow {
+    position: absolute;
+    right: 3px;
+    top: 4px;
+    display: block;
+    padding: 0px 4px;
+    border-radius: 3px;
+}
+
+.content-wrapper .form-group .arrow i {
+    line-height: 7px;
+    display: block;
+    color: #fff;
+    font-size: 7px;
+}
+
+.form-submit_btn {
+    margin-top: 15px;
+}
+
+.form-submit_btn button {
+    font-size: 12px;
+    width: 80px;
+    height: 20px;
+    line-height: 21 px;
+    padding: 0;
+    border: 0;
+    color: #fff;
+    box-shadow: 0 2px 5px #ddd;
+    border-radius: 5px;
+}
+
+.form-submit_btn button:hover {
+    color: #fff;
+}
+
+.form-submit_btn button.blue {
+    background: #005def
+}
+
+.form-submit_btn button.blue:hover {
+    background: #15428a
+}
+
+.form-submit_btn button.green {
+    background: #48AD23
+}
+
+.form-submit_btn button.green:hover {
+    background: rgb(8, 95, 8)
+}
+
+.form-submit_btn button.warning {
+    background: #ffc107
+}
+
+.form-submit_btn button.warning:hover {
+    background: #85670e
+}
+
+.form-submit_btn button.red {
+    background: red
+}
+
+.form-submit_btn button.red:hover {
+    background: rgb(122, 18, 18)
+}
+
+.readonly{
+    pointer-events: none;
+    background: #fff9e6 !important;
+}
+
+/* Chrome, Safari, Edge, Opera */
+input.no-arrow::-webkit-outer-spin-button,
+input.no-arrow::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Firefox */
+input.no-arrow {
+    -moz-appearance: textfield;
+}

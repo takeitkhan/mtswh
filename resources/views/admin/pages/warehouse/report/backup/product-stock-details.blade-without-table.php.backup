@@ -1,0 +1,663 @@
+@extends('admin.layouts.master')
+
+@section('title')
+    Stock Report of {{$Model('Product')::name($product->id)}}
+@endsection
+
+@section('onlytitle')
+    Stock Report of <span class="text-primary">{{$Model('Product')::name($product->id)}}</span>
+@endsection
+
+@section('content')
+    @php
+        $productUnit = $Model("AttributeValue")::getValueById($product->unit_id);
+        $exWhData = explode(',', $product->warehouse_based_data);
+        $whDatas = [];
+        foreach($exWhData as $whData){
+            $ex = explode('|', $whData);
+            $wh_id = $ex[0];
+            $stock_in = $ex[1];
+            $stock_out = $ex[2];
+            $stock_in_hand = $ex[3];
+            $whDatas [$wh_id]= [
+                'wh_id' => $wh_id,
+                'stock_in' => $stock_in,
+                'stock_out' => $stock_out,
+                'stock_in_hand' => $stock_in_hand,
+            ];
+        }
+
+        $ppi = $Model('PpiProduct')::with('ppiSpi', 'source', 'productInfo', 'productStock', 'ppiProduct')->where('product_id', $product->id);
+        $spi = $Model('SpiProduct')::with('ppiSpi', 'source', 'productInfo', 'productStock', 'spiProduct', 'ppiProduct')->where('product_id', $product->id);
+
+
+
+        //if have project
+        if(request()->get('project')){
+           $ppi =  $ppi->whereHas('ppiSpi', function($pr){
+               return $pr->where('project','=', request()->get('project'));
+            });
+
+            $spi =  $spi->whereHas('ppiSpi', function($pr){
+               return $pr->where('project','=', request()->get('project'));
+            });
+        }
+
+
+
+
+        //dd($spi);
+        if(request()->get('wh_id')){
+            $wh_id = request()->get('wh_id');
+            $stockIn = $whDatas[$wh_id]['stock_in'];
+            $stockOut = $whDatas[$wh_id]['stock_out'];
+            $stockHand = $whDatas[$wh_id]['stock_in_hand'];
+            $ppi = $ppi->where('warehouse_id', $wh_id);
+            $spi = $spi->where('warehouse_id', $wh_id);
+            $spiWaitingQty = $Model('SpiProduct')::leftjoin('ppi_spi_statuses as sts', 'spi_products.id', 'sts.ppi_spi_product_id')
+                                       ->select('spi_products.qty')
+//                                        ->where('spi_products.warehouse_id', $wh_id)
+                                        ->where('spi_products.from_warehouse', $wh_id)
+                                       ->where('spi_products.product_id', $product->id)
+                                       //->where('spi_products.bundle_id', $bundle_id)
+                                       ->whereNotIn('sts.code', ['spi_product_out_from_stock'])
+                                       ->groupBy('ppi_spi_product_id')
+                                       ->get()
+                                       ->sum('qty');
+            $checkLandedQty =  $Model('SpiProduct')::leftjoin('ppi_spi_statuses as sts', 'spi_products.id', 'sts.ppi_spi_product_id')
+//                                       ->select('spi_products.qty', 'sts.code')
+//                                       ->where('spi_products.warehouse_id', $wh_id)
+                                       ->where('spi_products.product_id', $product->id)
+                                       //->where('spi_products.bundle_id', $bundle_id)
+//                                       ->where('spi_products.from_warehouse', '!=', $wh_id)
+//                                       ->where('sts.status_for', 'Spi')
+                                        ->whereNotIn('sts.code', ['spi_product_out_from_stock'])
+                                       ->groupBy('ppi_spi_product_id')
+                                       ->get();
+//                                       ->sum('qty');
+
+
+            $t = $Model('SpiProduct')::leftjoin('ppi_spi_statuses', 'ppi_spi_statuses.ppi_spi_product_id', 'spi_products.id')
+                        ->select('spi_products.qty')
+                        ->where('ppi_spi_statuses.status_for', 'Spi')
+                        ->whereNotIn('ppi_spi_statuses.code', ['spi_product_out_from_stock'])
+                        ->where('spi_products.product_id',$product->id)
+                        ->where('spi_products.from_warehouse', '=', $wh_id)
+//                        ->where('spi_products.warehouse_id', '!=', $wh_id)
+                        ->groupBy('spi_products.id')
+                        ->get('qty')
+                        ;
+            $s = [];
+            foreach($t as $y){
+                $s [] = $y->qty;
+            }
+//            dump(array_sum($s));
+        } else {
+            $wh_id = null;
+            $stockIn = $product->stock_in;
+            $stockOut = $product->stock_out;
+            $stockHand = $product->stock_in_hand;
+            $spiWaitingQty =  $Model('SpiProduct')::leftjoin('ppi_spi_statuses as sts', 'spi_products.id', 'sts.ppi_spi_product_id')
+                                       ->select('spi_products.qty')
+//                                       ->where('spi_products.from_warehouse', $wh_id)
+                                       ->where('spi_products.product_id', $product->id)
+                                       //->where('spi_products.bundle_id', $bundle_id)
+                                       ->whereNotIn('sts.code', ['spi_product_out_from_stock'])
+                                       ->groupBy('ppi_spi_product_id')
+                                       ->get()
+                                       ->sum('qty');
+        }
+        $ppi = $ppi->orderBy('id', 'desc')->get();
+        $spi = $spi->orderBy('id', 'desc')->get();
+//        dump($spiWaitingQty);
+//        dump($checkLandedQty ?? 0);
+//        $len = $checkLandedQty-$stockOut ?? 0;
+//        dd($spi);
+        //dd($ppi);
+        //$spiWaitingQuantity = $spiWaitingQty - $stockOut;
+        //$stockHand =$stockHand-$spiWaitingQuantity;
+    @endphp
+    <div class="content-wrapper" id="appVue">
+
+        <div class="text-center pb-2 mb-2" style="border-bottom: 1px solid #ccc">
+            <a href="{{url()->current()}}" class="btn {{$wh_id == null ? 'btn-primary' : 'btn-outline-dark'}} py-0">Overall</a>
+            @foreach($Model('Warehouse')::get() as $warehouse)
+                <a href="?wh_id={{$warehouse->id}}"
+                   class="btn {{$wh_id == $warehouse->id ? 'btn-primary' : 'btn-outline-dark'}} py-0">{{$warehouse->name}}</a>
+            @endforeach
+
+            @include('admin.pages.warehouse.report.inc-product-stock-details.project')
+
+        </div>
+
+        <div class="row">
+            <div class="col-md-2 mb-4 stretch-card transparent">
+                <div class="card card-tale">
+                    <div class="card-body">
+                        <p class="mb-4">Stock In</p>
+                        <p class="font-30 mb-2">
+{{--                            {{$stockIn}} --}}
+                            <span v-html="stock_in_total"></span>
+                            <span class="font-19">{{$productUnit}}</span></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2 stretch-card transparent">
+                <div class="card card-light-danger">
+                    <div class="card-body">
+                        <p class="mb-4">Stock Out</p>
+                        <p class="font-30 mb-2">
+{{--                            {{$stockOut}} --}}
+                            <span v-html="stock_out_total"></span>
+                            <span class="font-19">{{$productUnit}}</span></p>
+                        <p></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2 stretch-card transparent">
+                <div class="card card-light-warning">
+                    <div class="card-body">
+                        <p class="mb-4">Waiting To Stock Out</p>
+                        <p class="font-30 mb-2">
+{{--                            {{$spiWaitingQuantity}}--}}
+                            @php
+
+                                if( request()->get('wh_id') ){
+                                    $spiWaitingQuantity = $Model('TemporaryStock')::where('product_id', $product->id)
+                                                             ->where('warehouse_id', request()->get('wh_id'))
+                                                            ->get('waiting_stock_out')->sum('waiting_stock_out');
+                                } else{
+                                    $spiWaitingQuantity = $Model('ProductStockReport')::Where('id', $product->id);
+                                    $spiWaitingQuantity = $spiWaitingQuantity->first()->waiting_stockout ?? 0;
+                                }
+                            @endphp
+{{--                            {{$spiWaitingQuantity}} --}}
+                            <span v-html="waiting_stock_out_total"></span>
+                            <span class="font-19">{{$productUnit}}</span>
+                        </p>
+                        <p></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2 mb-4 mb-lg-0 stretch-card transparent">
+                <div class="card card-light-blue">
+                    <div class="card-body">
+                        <p class="mb-4">Stock In Hand</p>
+                        <p class="font-30 mb-2">
+{{--                            {{$stockIn - $stockOut - $spiWaitingQuantity}}--}}
+                            <span v-html="stock_in_hand_total"></span>
+                            <span class="font-19">{{$productUnit}}</span></p>
+                        <p></p>
+                    </div>
+                </div>
+            </div>
+
+
+            @if(request()->get('project'))
+                <div class="col-md-2 mb-4 mb-lg-0 stretch-card transparent">
+                    <form target="_blank" action="{{route('report_lended_from_project')}}?project={{request()->get('project')}}&&product_id={{$product->id}}" method="post">
+                        @csrf
+                        <input type="hidden" name="project" value="{{request()->get('project')}}">
+                        <input type="hidden" name="product_id" value="{{$product->id}}">
+                        <input type="hidden" name="stock_in_hand" :value="stock_in_hand_total">
+                        <div class="card card-light-blue" style="background: #a700a2;">
+                            <div class="card-body">
+                                <p class="mb-4">
+                                    Lended from Project (spi) <button class="btn p-0 btn-danger" type="submit"><i class="fa fa-eye"></i></button>
+                                </p>
+                                <div class="font-25 mb-1">
+                                <span class="font-17"> Processing:
+                                    {{$Model('SpiProductLoanFromProject')::where('product_id', $product->id)
+                                             ->where('status', 'processing')
+                                             ->where('original_project', request()->get('project'))
+                                             ->get('qty')->sum('qty') ?? 0
+                                    }} {{$productUnit}}
+                                </span>
+                                </div>
+
+                                <div class="font-25">
+                                 <span class="font-16">
+
+                                     <?php /*Done:
+                                    {{$Model('SpiProductLoanFromProject')::where('product_id', $product->id)
+                                             ->where('status', 'done')->get('qty')->sum('qty') ?? 0
+                                    }} {{$productUnit}} */ ?> &nbsp;
+                                </span>
+                                </div>
+
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            @endif
+
+        </div>
+
+        <div class="row">
+            @php
+                global $stockInTotal;
+                $stockInTotal = [];
+                global $stockOutTotal;
+                $stockOutTotal = [];
+                global $waitingToStockOutTotal;
+                $waitingToStockOutTotal = [];
+                global $stockInHandTotal;
+                $stockInHandTotal = [];
+            @endphp
+            <div class="col-md-6">
+                <h6 class="mb-2">
+                    <div class="title-with-border mb-0 alert-secondary px-2 text-dark border-0 fw-bold">
+                        List Of PPI
+                    </div>
+                </h6>
+
+                @foreach($ppi as $key => $item)
+
+                    @php
+                        $checkBundle =  $Model('PpiBundleProduct')::where('ppi_id', $item->ppi_id)
+                                            ->where('ppi_product_id', $item->id)
+                                            ->where('product_id', $item->product_id)
+                                            ->get();
+                        $warehouse_id = request()->get('wh_id');
+                        $warehouse_code = $Model('Warehouse')::getColumn($item->warehouse_id, 'code');
+                    @endphp
+                    <?php
+                    $ifBossApproved = $Model('PpiSpiStatus')::where('ppi_spi_id', $item->ppi_id)->where('status_for', 'Ppi')
+                        ->whereIn('code', ['ppi_sent_to_wh_manager'])
+                        ->orWhereIn('code', ['ppi_all_steps_complete'])
+                        ->first();
+                    //dd($ifBossApproved);
+
+                    $produnctTemplate = function($bundleKey = null, $bundle = null) use ($key, $item, $Model, $warehouse_id, $warehouse_code) {
+                            $makeKey = $bundleKey > 0 ? 'b' . $bundleKey : 'bw' . $key;
+                            //dump($makeKey);
+
+                            $checkStockInComplete = $Model('PpiSpiStatus')::where('ppi_spi_id', $item->ppi_id)->where('status_for', 'Ppi')
+                                ->where('code', 'ppi_new_product_added_to_stock')
+                                ->where('ppi_spi_product_id', $item->ppiProduct->id)
+                                ->first();
+                            if ($checkStockInComplete) {
+
+                            } else {
+                                $watingStockInBg = 'alert-warning';
+                                $watingStockInText = 'waiting to stock in';
+                            }
+                    ?>
+
+                    <a target="_blank" href="{{route('ppi_edit', [$warehouse_code, $item->ppi_id])}}">
+                        <div
+                            class="col-lg-12 mb-2 font-11 bw-1 border-gray p-2 shadow-sm tr selectedRowId{{$makeKey}}">
+                            <div class="">
+                                    <span class="td">
+                                        @php
+                                            //dump($bundle);
+                                            if($bundle){
+                                                /*
+                                                    $stockIn = $Model('ProductStock')::checkStock($item->product_id, 'Ppi', 'In', [
+                                                     'warehouse_id' => $warehouse_id,
+                                                     'bundle_id' => $bundle->id,
+                                                     'ppi_spi_id' => $item->ppi_id,
+                                                     'ppi_spi_product_id' => $item->id,
+                                                    ]);
+                                                 */
+                                                $stockIn = $bundle->bundle_size;
+                                                $stockOut = $Model('ProductStock')::checkStock($item->product_id, 'Spi', 'Out', ['warehouse_id' => $warehouse_id, 'bundle_id' => $bundle->id]);
+                                                //$stockInhand = $stockIn - $stockOut;
+                                                $stockInhand = $stockIn;
+                                                $unit_price = $bundle->bundle_price;
+                                                $input_Qty = $stockInhand == 0 ? '0' : $bundle->bundle_size;
+                                                $inputDisabled = 'disabled';
+                                                $bundle_id = $bundle->id;
+                                                //dump($item->product_id);
+                                            } else {
+                                                /*
+                                                $stockIn = $Model('ProductStock')::checkStock($item->product_id, 'Ppi', 'In', [
+                                                    'warehouse_id' => $warehouse_id,
+                                                    'ppi_spi_id' => $item->ppi_id,
+                                                    'ppi_spi_product_id' => $item->ppi_spi_product_id,
+                                                    ]);
+                                                */
+                                                $stockIn = $item->qty;
+                                                $stockOut = $Model('ProductStock')::checkStock($item->product_id, 'Spi', 'Out', ['warehouse_id' => $warehouse_id]);
+                                                //$stockInhand = $stockIn - $stockOut;
+                                                $stockInhand = $stockIn;
+                                                $unit_price = $item->ppiProduct->unit_price;
+                                                $input_Qty = $stockInhand == 0 ? 0 : 1;
+                                                $inputDisabled = null;
+                                                $bundle_id = null;
+                                            }
+
+                                        $checkWaitListForStockIn = $Model('PpiProduct')::leftjoin('ppi_spi_statuses as sts', 'ppi_products.id', 'sts.ppi_spi_product_id')
+                                                                   ->select('ppi_products.qty')
+                                                                   ->where('ppi_products.warehouse_id', $item->warehouse_id)
+                                                                   ->where('ppi_products.product_id', $item->product_id)
+                                                                   ->whereNotIn('sts.code', ['ppi_new_product_added_to_stock'])
+                                                                   ->groupBy('ppi_spi_product_id')
+                                                                   ->get()
+                                                                   ->sum('qty');
+                                        //dump($checkWaitListForStockOut);
+                                        //dump($stockInhand);
+                                        //dump($stockOut);
+                                        $checkWaitListForStockIn = !empty($checkWaitListForStockIn) ? $checkWaitListForStockIn: 0;
+                                        $stockInhand = $stockInhand-$checkWaitListForStockIn;
+                                        $input_Qty = $stockInhand == 0 ? 0 : $input_Qty;
+                                         global $stockInTotal;
+                                         $stockInTotal []= $checkStockInComplete ? $stockIn : 0;
+                                        @endphp
+
+                                        <span
+                                            title="ppi_product_id: {{$item->ppiProduct->id}} product_id: {{$item->productInfo->id}}">
+                                            <strong> {{$item->action_format}} ID: </strong>
+                                            <span class="tdshow">{{$item->ppi_id}} </span> <span
+                                                class="text-dark fw-bold">.</span>
+                                        </span>
+                                        <span>
+                                            <strong>{{$item->action_format}} Type:</strong> {{$item->ppiSpi->ppi_spi_type}} <span
+                                                class="text-dark fw-bold">.</span>
+                                        </span>
+                                        <span>
+                                            <strong>Project:</strong> <span
+                                                class="tdshow">{{$item->ppiSpi->project}}</span> <span
+                                                class="text-dark fw-bold">.</span>
+                                        </span>
+                                        <span>
+                                            <strong>Qty:</strong> {{ $stockIn}} <span
+                                                class="text-dark fw-bold">.</span>
+                                        </span>
+                                        <span>
+                                            <strong>Product State:</strong>  <span
+                                                class="tdshow">  {{$item->ppiProduct->product_state }} </span> <span
+                                                class="text-dark fw-bold">.</span>
+                                        </span>
+                                        <span>
+                                            <strong>Health Status:</strong> <span
+                                                class="tdshow">{{$item->ppiProduct->health_status }} </span> <span
+                                                class="text-dark fw-bold">.</span>
+                                        </span>
+                                        <span>
+                                            <strong>Unit Price:</strong> {{$unit_price}}
+                                        </span>
+                                          <span>
+                                            <strong>. Created at:</strong> {{$item->created_at->format('d M Y')}}
+                                        </span>
+                                        <br>
+                                        <span>
+                                            <strong>
+                                                {{$Model('Warehouse')::name($item->ppiSpi->warehouse_id)}}
+                                            </strong>
+                                        </span>
+                                        <br>
+                                        <!-- If Bundle -->
+                                        @if($bundle)
+                                            <div class="product_bundle_wrap"
+                                                 title="bundle_id: {{$bundle_id}}">
+                                                 <strong>Bundle Size: </strong>
+                                                <span class="tdshow"> {!!  $bundle->bundle_size !!}  </span>
+                                            </div> <!-- End Bundle -->
+                                        @endif
+                                        <div class="crumbswrapper d-inline-block">
+                                            <div class="crumbs mx-1 my-0 mt-1" id="source_breadcrumb">
+                                                <?php foreach($item->source as $source): ?>
+                                                    <div class="innerwrap">
+                                                        <span class="innerItem font-11  tdshow">
+                                                            <span>{{$source->source_type}}:</span> {{$source->who_source}}
+                                                        </span>
+                                                    </div>
+                                                <?php endforeach;?>
+                                            </div>
+                                        </div>
+
+                                            @isset($watingStockInText)
+                                            <div class="{{$watingStockInBg ?? null}} mt-2 p-1">
+                                                    <b> {{$watingStockInText ?? null}}</b>
+                                                </div>
+                                        @endisset
+                                    </span>
+                            </div>
+
+                        </div>
+                    </a>
+
+                    <?php } ?>
+
+
+
+                    @if(!empty($ifBossApproved))
+
+                        @if(count($checkBundle) > 0)
+                            @foreach($checkBundle as $bundleKey => $bundle)
+                                {!! $produnctTemplate($bundle->id, $bundle) !!}
+                            @endforeach
+                        @else
+                            {!! $produnctTemplate() !!}
+                        @endif
+
+                    @endif
+
+
+                @endforeach
+            </div>
+            <!-- SPI START -->
+            <div class="col-md-6">
+                <h6>
+                    <div class="title-with-border mb-2 alert-secondary px-2 text-dark border-0 fw-bold">
+                        List Of SPI
+                    </div>
+                </h6>
+
+
+
+                @foreach($spi as $key => $item)
+                    @php
+                        $checkBundle =  $Model('PpiBundleProduct')::where('ppi_id', $item->spi_id)
+                                            ->where('ppi_product_id', $item->id)
+                                            ->where('product_id', $item->product_id)
+                                            ->get();
+                        $warehouse_id = request()->get('wh_id');
+                        $warehouse_code = $Model('Warehouse')::getColumn($item->warehouse_id, 'code');
+                    @endphp
+                    <?php
+                    $ifBossApproved = $Model('PpiSpiStatus')::where('ppi_spi_id', $item->spi_id)->where('status_for', 'Spi')
+                        ->whereIn('code', ['spi_sent_to_wh_manager'])
+                        ->orWhereIn('code', ['spi_all_steps_complete'])
+                        ->first();
+
+                    $produnctTemplate = function($bundleKey = null, $bundle = null) use ($key, $item, $Model, $warehouse_id, $warehouse_code) {
+                    $makeKey = $bundleKey > 0 ? 'b' . $bundleKey : 'bw' . $key;
+                    //dump($makeKey);
+                    $checkStockOutComplete = $Model('PpiSpiStatus')::where('ppi_spi_id', $item->spi_id)->where('status_for', 'Spi')
+                        ->where('code', 'spi_product_out_from_stock')
+                        ->where('ppi_spi_product_id', $item->spiProduct->id)
+                        ->first();
+                    if ($checkStockOutComplete) {
+
+                    } else {
+                        $watingStockOutBg = 'alert-warning';
+                        $watingStockOutText = 'waiting to stock out';
+                    }
+                    ?>
+
+                    <a class="" target="_blank" href="{{route('spi_edit', [$warehouse_code, $item->spi_id])}}">
+                        <div class="col-lg-12 mb-2 font-11 bw-1 border-gray p-2 shadow-sm tr selectedRowId{{$makeKey}}">
+                            <div class="">
+                                <span class="td">
+                                    @php
+                                        if($bundle){
+                                             $stockIn = $Model('ProductStock')::checkStock($item->product_id, 'Spi', 'Out', [
+                                                 'warehouse_id' => $warehouse_id,
+                                                 'bundle_id' => $bundle->id,
+                                                 'ppi_spi_id' => $item->ppi_id,
+                                                 'ppi_spi_product_id' => $item->id,
+                                             ]);
+                                            $stockOut = $Model('ProductStock')::checkStock($item->product_id, 'Spi', 'Out', ['warehouse_id' => $warehouse_id, 'bundle_id' => $bundle->id]);
+                                            //$stockInhand = $stockIn - $stockOut;
+                                            $stockInhand = $stockIn;
+                                            $unit_price = $bundle->bundle_price;
+                                            $input_Qty = $stockInhand == 0 ? '0' : $bundle->bundle_size;
+                                            $inputDisabled = 'disabled';
+                                            $bundle_id = $bundle->id;
+//                                            dump($bundle->id);
+                                        } else {
+                                            $stockIn = $Model('ProductStock')::checkStock($item->product_id, 'Ppi', 'In', [
+                                                'warehouse_id' => $warehouse_id,
+                                                'ppi_spi_id' => $item->ppi_spi_id,
+                                                'ppi_spi_product_id' => $item->ppi_spi_product_id,
+                                            ]);
+                                            $stockOut = $Model('ProductStock')::checkStock($item->product_id, 'Spi', 'Out', ['warehouse_id' => $warehouse_id]);
+                                            //$stockInhand = $stockIn - $stockOut;
+                                            $stockInhand = $stockIn;
+                                            $unit_price = $item->spiProduct->unit_price;
+                                            $input_Qty = $stockInhand == 0 ? 0 : 1;
+                                            $inputDisabled = null;
+                                            $bundle_id = null;
+                                        }
+                                        $checkWaitListForStockOut = $Model('SpiProduct')::leftjoin('ppi_spi_statuses as sts', 'spi_products.id', 'sts.ppi_spi_product_id')
+                                                       ->select('spi_products.qty')
+//                                                       ->where('spi_products.from_warehouse', $item->warehouse_id)
+                                                       ->where('spi_products.warehouse_id', $item->warehouse_id)
+                                                       ->where('spi_products.product_id', $item->product_id)
+                                                       ->where('spi_products.bundle_id', $bundle_id)
+                                                       ->whereNotIn('sts.code', ['spi_product_out_from_stock'])
+                                                       ->groupBy('ppi_spi_product_id')
+                                                       ->get()
+                                                       ->sum('qty');
+//                                    dump($checkWaitListForStockOut);
+                                    //dump($stockInhand);
+                                    //dump($stockOut);
+                                    $checkWaitListForStockOut = !empty($checkWaitListForStockOut) ? $checkWaitListForStockOut: 0;
+                                    $stockInhand = $stockInhand-$checkWaitListForStockOut;
+                                    $input_Qty = $stockInhand == 0 ? 0 : $input_Qty;
+                                    global $stockOutTotal;
+                                    $stockOutTotal []= $checkStockOutComplete ?  $item->qty : 0;
+                                    global $waitingToStockOutTotal;
+                                    $waitingToStockOutTotal []=$checkStockOutComplete ? 0 : $item->qty;
+                                    @endphp
+                                    <span
+                                        title="spi_product_id: {{$item->spiProduct->id}} ppi_product_id: {{$item->ppiProduct->id}} product_id: {{$item->productInfo->id}}">
+                                        <strong> {{$item->action_format}} ID: </strong>
+                                        <span class="tdshow">{{$item->spi_id}} </span> <span
+                                            class="text-dark fw-bold">.</span>
+                                    </span>
+                                    <span>
+                                        <strong>{{$item->action_format}} Type:</strong> {{$item->ppiSpi->ppi_spi_type}}
+                                        <span class="text-dark fw-bold">.</span>
+                                    </span>
+
+                                   <span>
+                                        <strong>Type:</strong> {{$item->ppiSpi->ppi_spi_type}}
+                                        <span class="text-dark fw-bold">.</span>
+                                    </span>
+                                    <span>
+                                        <strong>Project:</strong> <span class="tdshow">{{$item->ppiSpi->project}}</span>
+                                        <span class="text-dark fw-bold">.</span>
+                                    </span>
+                                      <span>
+                                        <strong>Qty:</strong> {{ $item->qty}} <span class="text-dark fw-bold">.</span>
+                                    </span>
+                                    <span>
+                                        <strong>Product State:</strong>  <span
+                                            class="tdshow">  {{$item->ppiProduct->product_state }} </span> <span
+                                            class="text-dark fw-bold">.</span>
+                                    </span>
+                                    <span>
+                                        <strong>Health Status:</strong> <span
+                                            class="tdshow">{{$item->ppiProduct->health_status }} </span> <span
+                                            class="text-dark fw-bold">.</span>
+                                    </span>
+                                    <span>
+                                        <strong>Unit Price:</strong> {{$unit_price}}
+                                    </span>
+                                      <span>
+                                        <strong>. Created at:</strong> {{$item->created_at->format('d M Y')}}
+                                    </span>
+                                    <br>
+                                    <span>
+                                        <strong>
+                                            {{$Model('Warehouse')::name($item->ppiSpi->warehouse_id)}}
+                                        </strong>
+                                    </span>
+                                    @if($item->warehouse_id != $item->from_warehouse)
+                                        <br>
+                                        <strong class="text-info font-weight-bold">
+                                        {{'Lended From '.$Model('Warehouse')::name($item->from_warehouse)}}
+                                    </strong>
+                                    @endif
+
+                                    <br>
+{{--                                    {{$item->warehouse_id}} ( {{$item->from_warehouse}}--}}
+                                <!-- If Bundle -->
+                                    @if($bundle)
+                                        <div class="product_bundle_wrap" title="bundle_id: {{$bundle_id}}">
+                                             <strong>Bundle Size: </strong>
+                                            <span class="tdshow"> {!!  $bundle->bundle_size !!}  </span>
+                                        </div> <!-- End Bundle -->
+                                    @endif
+                                    <div class="crumbswrapper d-inline-block">
+                                        <div class="crumbs mx-1 my-0 mt-1" id="source_breadcrumb">
+                                            <?php foreach($item->source as $source): ?>
+                                                <div class="innerwrap">
+                                                    <span class="innerItem font-11  tdshow">
+                                                        <span>{{$source->source_type}}:</span> {{$source->who_source}}
+                                                    </span>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+
+                                    @isset($watingStockOutText)
+                                        <div class="{{$watingStockOutBg ?? null}} mt-2 p-1">
+                                        <b> {{$watingStockOutText}}</b>
+                                    </div>
+                                    @endisset
+
+                                </span>
+                            </div>
+
+                        </div>
+                    </a>
+
+                    <?php } ?>
+                    @if(!empty($ifBossApproved))
+                        @if(count($checkBundle) > 0)
+                            @foreach($checkBundle as $bundleKey => $bundle)
+                                {!! $produnctTemplate($bundle->id, $bundle) !!}
+                            @endforeach
+                        @else
+                            {!! $produnctTemplate() !!}
+                        @endif
+                    @endif
+                @endforeach
+            </div>
+
+
+
+            <!-- END SPI -->
+        </div>
+    </div>
+@endsection
+
+
+@section('cusjs')
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <script>
+        const { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    stock_in_total: '{{array_sum($stockInTotal)}} ',
+                    stock_out_total: '{{array_sum($stockOutTotal)}} ',
+                    waiting_stock_out_total: '{{array_sum($waitingToStockOutTotal)}} ',
+                    stock_in_hand_total: Math.max('{{array_sum($stockInTotal) - array_sum($stockOutTotal) -  array_sum($waitingToStockOutTotal)}} ', 0)+' ',
+                }
+            },
+            created(){
+
+            }
+        }).mount('#appVue')
+    </script>
+
+
+@endsection

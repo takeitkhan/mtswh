@@ -1,0 +1,124 @@
+@import "bootstrap.min.css";
+@import "form.css";
+@import "blue.css";
+@import "style.css";
+@import "button.css";
+@import "custom.css";
+@import "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css";
+
+body {
+    color: #000 !important;
+}
+
+.fieldset {
+    border: 1px solid #9faec1;
+    background: #F8F8F8;
+    border-radius: 0px;
+    padding: 2px 0px;
+}
+
+.fieldset legend {
+    background: #1F497D;
+    color: #fff;
+    padding: 0px 5px;
+    font-size: 12px;
+    border-radius: 5px;
+    margin-left: 20px;
+}
+
+legend {
+    float: unset;
+    width: unset;
+}
+
+.table-wrapper table tbody td {
+    border: 1px solid #ddd;
+}
+.table-wrapper table tbody th {
+    border: 1px solid #ddd;
+}
+
+.bundle-row{
+    font-size: 10px !important;
+    padding: 0px 1px !important;
+    width: 35px !important;
+}
+.col-md-2, .col-md-3, .col-md-6, .col-md-5 {
+    width: 30% !important;
+    font-size: 11px !important;
+}
+.form-select, input {
+    height: 22px;
+    line-height: 12px;
+    padding: 0px 0px 0px 5px;
+    font-size: 11px !important;
+    color: #000 !important;
+}
+
+.not_print {
+    display: none !important;
+}
+#not_print {
+    display: none;
+}
+.table-wrapper {
+    height: auto !important;
+    overflow-y: hidden !important;
+    overflow-x: hidden !important;
+    overflow: hidden !important;
+}
+table {
+    width: 100% !important;
+    display: table !important;
+    border-spacing: 0px 0px;
+    overflow: hidden !important;
+    table-layout: fixed;
+}
+
+tbody, thead {
+    /* height: 92vh; */
+    overflow-y: hidden !important;
+    overflow-x: hidden !important;
+
+}
+
+thead tr {
+    background: none !important;
+    color: #000 !important;
+}
+tr table {
+    width: auto !important;
+    display: unset !important;
+    color: #000 !important;
+}
+
+td {
+    border: 1px solid #ddd;
+    width: auto !important;
+    min-width: auto !important;
+    border-left: 1px solid #ddd;
+    color: #000 !important;
+
+}
+
+th {
+    border: 3px solid #ddd !important;
+    border-left: 4px solid #ddd !important;
+    border-width: 5px;
+    border-color: #000;
+    color: #000 !important;
+}
+table table th {
+    border: 1px solid #ddd !important;
+    border-left: 1px solid #ddd !important;
+}
+.ppi_left_data {
+    max-height: auto !important;
+    overflow: hidden !important;
+}
+#printJS-form {
+    overflow: hidden !important;
+    color: #000 !important;
+    max-height: unset !important;
+}
+

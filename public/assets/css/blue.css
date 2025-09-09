@@ -1,0 +1,9 @@
+.sub-menu li a:hover,
+.sub-menu>li>ul>li:hover,
+.sub-menu>li:hover i,
+.custom-edit_option ul li a i:hover,
+.header-right_site .header-spl-icon ul li a:hover,
+.contact-form_wrap .form-group .arrow {
+    background: #005def!important;
+    color: #fff!important;
+}
