@@ -1,0 +1,10 @@
+/vendor
+/node_modules
+/.idea
+/.vscode
+/.env
+/.env.backup
+/public/storage
+/storage/*.key
+Homestead.yaml
+Homestead.json
