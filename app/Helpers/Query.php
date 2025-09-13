@@ -20,31 +20,35 @@ class Query
         return DB::table($table)->get();
     }
 
-    public static function delete($route, $id, $arrEle = [])
+    public static function delete($route, $params, $arrEle = [])
     {
+        // $params can be a single ID (int/string) or associative array of route parameters
+        $formId = 'delete-form-' . (is_array($params) ? implode('-', $params) : $params);
+
         $default = [
             'title' => 'Delete',
-            'id' => 'delete-form-' . $id,
+            'id' => $formId,
         ];
+
         $merge = array_merge($default, $arrEle);
         $formId = $merge['id'];
 
         /** @var \Spatie\Html\Html $html */
-        $html = app(\Spatie\Html\Html::class);
+        $html = app(Html::class);
 
         // Build form
         $form = $html->form()
-            ->method('POST')  // POST for HTML
-            ->action(route($route, $id))
+            ->method('POST')
+            ->action(route($route, $params))
             ->id($formId);
 
-        // Add CSRF token
+        // CSRF token
         $csrf = $html->input('hidden', '_token')->value(csrf_token());
 
-        // Add _method=DELETE
+        // Method DELETE
         $method = $html->input('hidden', '_method')->value('DELETE');
 
-        // Add button
+        // Delete button
         $button = $html->button('<span class="icon-trash is-red"></span>')
             ->type('button')
             ->attribute('title', $merge['title'])
@@ -54,6 +58,7 @@ class Query
 
         return $form->open() . $csrf->toHtml() . $method->toHtml() . $button->toHtml() . $form->close();
     }
+
 
 
 

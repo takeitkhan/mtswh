@@ -32,21 +32,11 @@
 
                 <div class="form-group">
                     <label for="description">Product Category: </label>
-                    <?php
-                        global $avaiableCat;
-                        $avaiableCat = (!empty($product)) ? $product->category_id : '';
-                        function selectCat($parent_id = null, $sub_mark = "") {
-                            global $avaiableCat;
-                            $getCat = \App\Models\ProductCategory::where('parent_id', $parent_id)->orderBy('created_at', 'desc')->get();
-                            foreach($getCat as $row){ ?>
-                                <option value="{{$row->id}}" {{$row->id == $avaiableCat ? 'selected' : ''}}>{{$sub_mark.$row->name}} </option>
-                                <?php selectCat($row->id, $sub_mark .'— ');
-                            }
-                        }?>
-                        <select class="form-control form-control-sm select-box" id="category_id" name="category_id">
-                            <option value="">None</option>
-                            <?php selectCat();?>
-                        </select>
+                    <select class="select-box form-control form-control-sm" id="category_id" name="category_id">
+                        <option value="">None</option>
+                        {!! \App\Helpers\CategoryHelper::renderOptions(!empty($product) ? $product->category_id : '') !!}
+                    </select>
+
                 </div>
                 <div class="form-group">
                     <label for="alert_stock_qty">Product Code: </label>

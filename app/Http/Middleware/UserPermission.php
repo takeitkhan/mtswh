@@ -20,35 +20,42 @@ class UserPermission
 
     public function handle(Request $request, Closure $next)
     {
-        //dd($request->user()->getAuthUserGeneralRole());
-        if(Auth::check()){ 
+        if (Auth::check()) {
 
-            //Current user role
-            //$croles = $request->user()->getUserRole();
+            $user = $request->user();
 
-            //Check Request Route
+            // Current route
             $route = Route::getRoutes()->match($request);
             $currentroute = $route->getName();
 
-            //Check Request Route with Current user Role 
-            if(auth()->user()->checkUserRoleTypeGlobal() == true){
+            if ($user->checkUserRoleTypeGlobal() === true) {
                 $check = true;
-            }else {
-                $user_id = Auth::user()->id;
-                $cr = $request->user()->checkUserGeneralRole($user_id);
-                $crole = array($cr->role_id);
-                $request->attributes->add(['authUserRole' => $crole]);
-                $check = auth()->user()->checkRoute($crole, $currentroute) ?? null;
-            }
-            //dd($cr);
-            $request->attributes->add(['hasPermission' => $check]);
-            $request->attributes->add(['currentUserRole' => $cr->role_id ?? true]);
-            
-            return $next($request);
+                $crole = [];
+                $roleId = null;
+            } else {
+                $user_id = $user->id;
+                $cr = $user->checkUserGeneralRole($user_id);
 
-        } else {
-            return redirect()->route('login');
+                // Protect against null
+                if ($cr) {
+                    $crole = [$cr->role_id];
+                    $roleId = $cr->role_id;
+                } else {
+                    $crole = [];
+                    $roleId = null; // or a default role id if you prefer
+                }
+
+                $request->attributes->add(['authUserRole' => $crole]);
+
+                $check = $user->checkRoute($crole, $currentroute) ?? null;
+            }
+
+            $request->attributes->add(['hasPermission' => $check]);
+            $request->attributes->add(['currentUserRole' => $roleId]);
+
+            return $next($request);
         }
-        //return $next($request);
+
+        return redirect()->route('login');
     }
 }

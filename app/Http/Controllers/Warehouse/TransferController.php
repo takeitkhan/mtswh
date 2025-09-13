@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\warehouse;
+namespace App\Http\Controllers\Warehouse;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Warehouse\PpiSpiStatusController;
