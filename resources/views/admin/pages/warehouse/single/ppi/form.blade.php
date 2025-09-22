@@ -174,7 +174,7 @@
                     <div class="form-submit_btn">
                         @if(!empty($ppi))
                         @else
-                            <button type="submit" class="btn blue px-2 w-auto">Save changes</button>
+                            <button type="submit" class="px-2 w-auto btn blue">Save changes</button>
                         @endif
                     </div>
                 </form>
@@ -182,13 +182,13 @@
                 <!-- PPI Product Modal /Information -->
             @if(!empty($ppi->id))
                 <!-- ENd product Modal Row -->
-                    <div class="row mt-3 not_print">
+                    <div class="mt-3 row not_print">
                         <h6>
-                            <div class="title-with-border text-center ">
+                            <div class="title-with-border text-center">
                                 <span class="done_this_action">
                                     @if(auth()->user()->hasRoutePermission('ppi_product_add'))
                                         <button title="Add Product to PPI" type="button"
-                                                class="btn btn-lg btn-outline-teal py-0 rounded-circle"
+                                                class="py-0 rounded-circle btn-outline-teal btn btn-lg"
                                                 style=" height: 50px;" data-bs-toggle="modal"
                                                 data-bs-target="#exampleModal">
                                             <i class="fas fa-plus"></i>
@@ -197,7 +197,7 @@
 
                                     @if(auth()->user()->hasRoutePermission('ppi_product_import_from_another_ppi'))
                                         <button title="Import Product from another PPI" type="button"
-                                                class="btn btn-lg btn-outline-primary py-0 rounded-circle"
+                                                class="py-0 rounded-circle btn-outline-primary btn btn-lg"
                                                 style=" height: 50px;"
                                                 id="importProductFromPpi">
                                             <i class="fa fa-file-import"></i>
@@ -205,7 +205,7 @@
                                     @endif
                                 </span>
                                 <button title="Ppi Data Print" type="button"
-                                        class="btn btn-lg btn-outline-orange py-0 rounded-circle ppi_print_data"
+                                        class="py-0 rounded-circle btn-outline-orange btn btn-lg ppi_print_data"
                                         style=" height: 50px;"
                                         id="">
                                     <i class="fa fa-print"></i>
@@ -244,17 +244,17 @@
                                         <div class="modal-body">
                                             @include('admin.pages.warehouse.single.ppi.form.product-modal')
                                         </div>
-                                        <div class="modal-footer d-inline-block">
+                                        <div class="d-inline-block modal-footer">
                                             @if(isset($ppiEditProduct))
                                                 <a href="{{route('ppi_edit', [$warehouse_code, $ppi->id])}}"
-                                                   class="btn btn-sm btn-secondary float-end">Cancel</a>
+                                                   class="float-end btn btn-sm btn-secondary">Cancel</a>
                                             @else
                                                 <div class="d-inline-block" id="add_btn"></div>
-                                                <button type="button" class="btn btn-sm btn-secondary float-end"
+                                                <button type="button" class="float-end btn btn-sm btn-secondary"
                                                         data-bs-dismiss="modal">Close
                                                 </button>
                                             @endif
-                                            <button type="submit" class="btn btn-sm btn-primary float-end">Save
+                                            <button type="submit" class="float-end btn btn-sm btn-primary">Save
                                                 changes
                                             </button>
                                         </div>
@@ -292,7 +292,7 @@
             @if(isset($getPpiProduct) &&  count($getPpiProduct))
                     <div class="done_this_action">
                         <h6>
-                            <div class="title-with-border mb-0 alert-secondary px-2 text-dark border-0 fw-bold">
+                            <div class="mb-0 px-2 title-with-border border-0 text-dark alert-secondary fw-bold">
                                 PPI Action
                             </div>
                         </h6>
@@ -306,7 +306,7 @@
                 @if(!empty($ppi))
                     <?php $ppi_id = $ppi->id; ?>
                     <h6>
-                        <div class="title-with-border mb-0 alert-secondary px-2 text-dark border-0 fw-bold">
+                        <div class="mb-0 px-2 title-with-border border-0 text-dark alert-secondary fw-bold">
                             PPI Status
                         </div>
                     </h6>
@@ -329,7 +329,7 @@
 //                $allMtsProject = $ApiCollection::getMtsProject();
                 $allMtsProject = $Model('Project')::where('type', 'Service')->get();
             @endphp
-            <select name="project" id="project" class="form-select select-box" required>
+            <select name="project" id="project" class="select-box form-select" required>
                 <option value="" disabled selected>Select</option>
                 @if(!empty($allMtsProject))
                     @foreach($allMtsProject as $value)
@@ -345,7 +345,7 @@
         <div class="form-group d-block">
             <label for="project">Project</label>
             @php  $allProject = $Query::accessModel('Project')::where('type', 'Supply')->get(); @endphp
-            <select name="project" id="project" class="form-select select-box" required>
+            <select name="project" id="project" class="select-box form-select" required>
                 <option value="" disabled selected>Select</option>
                 @foreach($allProject as $value)
                     <option value="{{$value->name}}">{{$value->name}}</option>
@@ -374,7 +374,7 @@
                             @foreach($contactRole as $role)
                             <div class="" style="display: inline-flex; width: 100px;">
                                 <input required class="mb-0" type="radio" class="" name="main_source[${id}][type]" value="{{$role->value}}" id="contactRole{{$role->id}}${id}">
-                                <label class="w-100 ms-2" style="line-height: 22px;" for="contactRole{{$role->id}}${id}">{{$role->value}}</label>
+                                <label class="ms-2 w-100" style="line-height: 22px;" for="contactRole{{$role->id}}${id}">{{$role->value}}</label>
                             </div>
                             @endforeach
                         </div>
@@ -438,7 +438,7 @@
         <script type="text/template" id="importProductTem">
             <div class="form-group">
                 <label for="">Select PPI ID</label>
-                <select name="from_ppi_id" id="" class="form-control from-control-sm" required>
+                <select name="from_ppi_id" id="" class="from-control-sm form-control" required>
                     <option value=""></option>
                     @foreach($Model('PpiSpi')::where('action_format', 'Ppi')->where('warehouse_id', request()->get('warehouse_id'))->get() as $data)
                         @if($ppi->id == $data->id)

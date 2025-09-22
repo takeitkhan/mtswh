@@ -3,7 +3,7 @@
         <div class="contact-form_wrap">
 
             <div class="row">
-                    <div class="col-md-8 col-lg-3 col-sm-12 m-auto">
+                    <div class="m-auto col-md-8 col-lg-3 col-sm-12">
                         <div class="form-content">
                                 <div class="form-group name">
                                     <label for="name">Name: </label>
@@ -19,7 +19,7 @@
                                 </div>
                                 <div class="form-group select arrow_class">
                                     <label for="select">Select Role </label>
-                                    <select class="form-select select-box" aria-label=".form-select-lg example" id="select">
+                                    <select class="select-box form-select" aria-label=".form-select-lg example" id="select">
                                         <option value="1">Super Admin</option>
                                         <option value="2">Admin</option>
                                         <option value="3">User</option>

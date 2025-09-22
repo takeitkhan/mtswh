@@ -12,6 +12,8 @@ use App\Models\Roleuser;
 use App\Models\PpiSpiNotification;
 use Carbon\Carbon;
 use App\Models\PpiSpiHistory;
+use Illuminate\Support\Facades\DB;
+
 class WarehouseController extends Controller
 {
     private $model;
@@ -47,7 +49,8 @@ class WarehouseController extends Controller
     public function store(Request $request)
     {
         //dd($request->all());
-        $validator = Validator::make($request->all(),
+        $validator = Validator::make(
+            $request->all(),
             [
                 'name' => 'required',
             ]
@@ -75,15 +78,15 @@ class WarehouseController extends Controller
             $assignAttr = [];
             if ($request->assign_user != null) {
                 foreach ($request->assign_user as $key => $assignUser) {
-                    $assignAttr [] = $attributes = [
+                    $assignAttr[] = $attributes = [
                         'user_id' => $assignUser['user_id'],
                         'role_id' => $assignUser['role_id'],
                         'warehouse_id' => $warehouse->id,
                     ];
-                }//End Foreach
+                } //End Foreach
                 //dd($assignAttr);
                 $whr = $this->roleuser::insert($assignAttr);
-            }//End if
+            } //End if
 
             try {
                 return redirect()->route('warehouse_index')->with(['status' => 1, 'message' => 'Successfully created user']);
@@ -109,39 +112,91 @@ class WarehouseController extends Controller
      * Update Data of DB
      *
      */
+    // public function update(Request $request)
+    // {
+    //     //Catch Warehouse Information
+    //     $attributes = [
+    //         'name' => $request->name,
+    //         'email' => $request->email,
+    //         'phone' => $request->phone,
+    //         'location' => $request->location,
+    //         'is_active' => $request->is_active
+    //     ];
+    //     $wh = $this->model::where('id', $request->id)->update($attributes); //End Warehouse Inormation Update
+
+    //     //Assign User to Warehouse
+    //     $existing = $this->roleuser::where('warehouse_id', $request->id)->delete() ?? Null; //Delete Existing Data        
+    //     //Store to RoleUser
+    //     $assignAttr = [];
+    //     if ($request->assign_user != null) {
+    //         foreach ($request->assign_user as $key => $assignUser) {
+    //             $assignAttr [] = $attributes = [
+    //                 'user_id' => $assignUser['user_id'],
+    //                 'role_id' => $assignUser['role_id'],
+    //                 'warehouse_id' => $request->id,
+    //             ];
+    //         }
+    //         //End Foreach
+    //         dd($assignAttr);
+    //         $whr = $this->roleuser::insert($assignAttr);
+    //     }//End if
+
+    //     try {
+    //         return redirect()->back()->with(['status' => 1, 'message' => 'Successfully updated']);
+    //     } catch (\Exception $e) {
+    //         return redirect()->back()->with(['status' => 0, 'message' => 'Error']);
+    //     }
+    // }
+
     public function update(Request $request)
     {
-        //Catch Warehouse Information
-        $attributes = [
-            'name' => $request->name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'location' => $request->location,
-            'is_active' => $request->is_active
-        ];
-        $wh = $this->model::where('id', $request->id)->update($attributes); //End Warehouse Inormation Update
+        $request->validate([
+            'id' => 'required|integer|exists:warehouses,id',
+            'name' => 'required|string',
+            'email' => 'nullable|email',
+            'phone' => 'nullable|string',
+            'location' => 'nullable|string',
+            'is_active' => 'required|in:Yes,No',
+            'assign_user' => 'nullable|array',
+            'assign_user.*.user_id' => 'required|integer|exists:users,id',
+            'assign_user.*.role_id' => 'required|integer|exists:roles,id',
+        ]);
 
-        //Assign User to Warehouse
-        $existing = $this->roleuser::where('warehouse_id', $request->id)->delete() ?? Null;//Delete Existing Data
+        $warehouseAttributes = $request->only(['name', 'email', 'phone', 'location', 'is_active']);
+        $assignUsers = $request->input('assign_user', []);
 
-        //Store to RoleUser
-        $assignAttr = [];
-        if ($request->assign_user != null) {
-            foreach ($request->assign_user as $key => $assignUser) {
-                $assignAttr [] = $attributes = [
-                    'user_id' => $assignUser['user_id'],
-                    'role_id' => $assignUser['role_id'],
-                    'warehouse_id' => $request->id,
-                ];
-            }//End Foreach
-            //dd($assignAttr);
-            $whr = $this->roleuser::insert($assignAttr);
-        }//End if
-
+        DB::beginTransaction();
         try {
+            $warehouse = $this->model::findOrFail($request->id);
+            $warehouse->update($warehouseAttributes);
+
+            $toInsert = [];
+            foreach ($assignUsers as $au) {
+                $exists = $this->roleuser::where('warehouse_id', $warehouse->id)
+                    ->where('user_id', $au['user_id'])
+                    ->where('role_id', $au['role_id'])
+                    ->exists();
+
+                if (!$exists) {
+                    $toInsert[] = [
+                        'user_id' => $au['user_id'],
+                        'role_id' => $au['role_id'],
+                        'warehouse_id' => $warehouse->id,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+            }
+
+            if (!empty($toInsert)) {
+                $this->roleuser::insert($toInsert);
+            }
+
+            DB::commit();
             return redirect()->back()->with(['status' => 1, 'message' => 'Successfully updated']);
         } catch (\Exception $e) {
-            return redirect()->back()->with(['status' => 0, 'message' => 'Error']);
+            DB::rollBack();
+            return redirect()->back()->with(['status' => 0, 'message' => 'Error: ' . $e->getMessage()]);
         }
     }
 
@@ -163,7 +218,6 @@ class WarehouseController extends Controller
         $warehouse_code = $this->Model('Warehouse')::getColumn($status->warehouse_id, 'code');
 
         if (!empty($cn) && ($cn->is_read == 1 || $cn->is_read == 0)) {
-
         } else {
             $attr = [
                 'status_id' => $status_id,
@@ -191,7 +245,7 @@ class WarehouseController extends Controller
 
     public function notoficationClearAll(Request $request)
     {
-//        dd($request->all());
+        //        dd($request->all());
         $exId = explode('|', $request->clearAll);
 
         $upDateId = null;
@@ -200,10 +254,10 @@ class WarehouseController extends Controller
         foreach ($exId as $id) {
             $check = PpiSpiNotification::where('status_id', $id)->first();
             if ($check) {
-                $upDateId [] = $check->id;
-//                PpiSpiNotification::where('id', $check->id)->update(['is_read' => 2]);
+                $upDateId[] = $check->id;
+                //                PpiSpiNotification::where('id', $check->id)->update(['is_read' => 2]);
             } else {
-                $attr [] = [
+                $attr[] = [
                     'status_id' => $id,
                     'is_read' => 2,
                     'action_performed_by' => auth()->user()->id,
@@ -212,12 +266,12 @@ class WarehouseController extends Controller
                 ];
             }
         }
-        if($upDateId) {
-           $done = PpiSpiNotification::whereIn('id', $upDateId)->update(['is_read' => 2]);
+        if ($upDateId) {
+            $done = PpiSpiNotification::whereIn('id', $upDateId)->update(['is_read' => 2]);
         }
 
-        if(!empty($attr)) {
-           PpiSpiNotification::insert($attr);
+        if (!empty($attr)) {
+            PpiSpiNotification::insert($attr);
         }
 
 
@@ -284,12 +338,14 @@ class WarehouseController extends Controller
         return view('admin.pages.warehouse.report.ppi-site-based-product-report');
     }
 
-    public function spiSiteBasedProductReport(){
+    public function spiSiteBasedProductReport()
+    {
         return view('admin.pages.warehouse.report.spi-site-based-product-report');
     }
 
 
-    public function ppiSpiAccumulated() {
+    public function ppiSpiAccumulated()
+    {
         return view('admin.pages.warehouse.report.ppi-spi-accumulated-report');
     }
 
@@ -314,15 +370,18 @@ class WarehouseController extends Controller
 
 
     //Scraped Product
-    public  function scrappedProduct(){
+    public  function scrappedProduct()
+    {
         return view('admin.pages.warehouse.report.scrapped-product');
     }
-    public  function scrappedProductDetails($product_id){
+    public  function scrappedProductDetails($product_id)
+    {
         $product = $this->Model('Product')::where('id', $product_id)->first();
         return view('admin.pages.warehouse.report.scrapped-product-details', compact('product'));
     }
 
-    public  function apiGetScrappedProduct(Request $request){
+    public  function apiGetScrappedProduct(Request $request)
+    {
         $query = $this->Model('ScrappedProduct')::query()->where('scrapped_product', '>', 0);
         /** Filed Show for loop */
         $phpCode = '
@@ -340,15 +399,18 @@ class WarehouseController extends Controller
 
 
     //Faulty Product
-    public  function faultyProduct(){
+    public  function faultyProduct()
+    {
         return view('admin.pages.warehouse.report.faulty-product');
     }
-    public  function faultyProductDetails($product_id){
+    public  function faultyProductDetails($product_id)
+    {
         $product = $this->Model('Product')::where('id', $product_id)->first();
         return view('admin.pages.warehouse.report.faulty-product-details', compact('product'));
     }
 
-    public  function apiGetFaultyProduct(Request $request){
+    public  function apiGetFaultyProduct(Request $request)
+    {
         $query = $this->Model('FaultyProduct')::query()->where('faulty_product', '>', 0);
         /** Filed Show for loop */
         $phpCode = '
@@ -364,40 +426,45 @@ class WarehouseController extends Controller
         return $this->Datatable::generate($request, $query, $fields, ['orderby' => 'asc', 'phpcode' => $phpCode]);
     }
 
-    public function ppiProductToSpi($ppi_product_id){
+    public function ppiProductToSpi($ppi_product_id)
+    {
         return view('admin.pages.warehouse.report.ppi_product_to_spi', compact('ppi_product_id'));
     }
 
 
     //Vendor Report
-    public function vendorReport(){
+    public function vendorReport()
+    {
         return view('admin.pages.warehouse.report.vendor_report');
     }
 
-    public function purchaseVendorReport(){
+    public function purchaseVendorReport()
+    {
         return view('admin.pages.warehouse.report.purchase_vendor_report');
     }
 
 
     //project Lended Report
-    public function lendedFromReport(Request $request){
+    public function lendedFromReport(Request $request)
+    {
         $project_name = $request->project;
         $stock_in_hand = $request->stock_in_hand;
         return view('admin.pages.warehouse.report.project-lended')->with([
             'project_name' => $project_name,
             'stock_in_hand' => $stock_in_hand,
-            ]);
+        ]);
     }
 
 
-    public function startlendProjectReturn(Request $request){
+    public function startlendProjectReturn(Request $request)
+    {
         $lended_id = explode(',', $request->lended_id) ?? false;
-//        dd($lended_id);
+        //        dd($lended_id);
         $getData = $this->Model('SpiProductLoanFromProject')::whereIn('id', $lended_id)->get();
         $makeArr = [];
-        foreach($getData as $data){
+        foreach ($getData as $data) {
             $forWarehouseId = $this->Model('SpiProduct')::where('id', $data->spi_product_id)->first()->from_warehouse;
-            $makeArr[$forWarehouseId] [$data->landed_project_id] []= [
+            $makeArr[$forWarehouseId][$data->landed_project_id][] = [
                 'project_name' => $data->landed_project,
                 'project_type' => $this->Model('Project')::where('id', $data->landed_project_id)->first()->type ?? null,
                 'product_id' => $data->product_id,
@@ -413,15 +480,15 @@ class WarehouseController extends Controller
 
         //Process ppi
 
-        foreach($makeArr as $whid => $items){
+        foreach ($makeArr as $whid => $items) {
             //dump($items);
-            foreach($items as $pid => $item){
+            foreach ($items as $pid => $item) {
                 $makePpi = [
                     'action_format' => 'Ppi',
                     'ppi_spi_type' => $item[0]['project_type'],
                     'project' => $item[0]['project_name'],
                     'tran_type' => 'Without Money',
-                    'note' => 'Lended product return from '.$item[0]['project_name'],
+                    'note' => 'Lended product return from ' . $item[0]['project_name'],
                     'transferable' => null,
                     'warehouse_id' => $whid,
                     'action_performed_by' => auth()->user()->id,
@@ -435,7 +502,7 @@ class WarehouseController extends Controller
                     'redirect' => false
                 ]);
                 // Process PPI Product
-                foreach($item as $key => $p) {
+                foreach ($item as $key => $p) {
                     $ppiProduct = $this->Model('PpiProduct')::where('id', $p['ppi_product_id'])->first();
                     $createPpiProduct = [
                         'ppi_id' => $ppi->id,
@@ -474,7 +541,7 @@ class WarehouseController extends Controller
                         'updated_at' => Carbon::now()
                     ];
 
-                    if($ppiProduct->product_state == 'Cut-Piece') {
+                    if ($ppiProduct->product_state == 'Cut-Piece') {
                         $newPpiProductId = $ppiProductIDCreate->id;
                         $newbundleName = $ppiProduct->product_id . $newPpiProductId . '_' . $ppiProduct->qty;
                         $oldbundleName = $ppiProduct->product_id . $ppiProduct->ppi_product_id . '_' . $ppiProduct->qty;
@@ -504,7 +571,7 @@ class WarehouseController extends Controller
                         'ppi_id' => $ppi->id,
                         'action' => 'ppi_product_added',
                         'ppi_product_id' => $ppiProductIDCreate->id,
-                        'note' => 'Product: '.PpiProduct::ppiProductInfoByPpiProductId($ppiProductIDCreate->id, ['column' => 'product_name']),
+                        'note' => 'Product: ' . PpiProduct::ppiProductInfoByPpiProductId($ppiProductIDCreate->id, ['column' => 'product_name']),
                         'redirect' => false,
                         'get_status_data' => true,
                     ]);
@@ -520,13 +587,10 @@ class WarehouseController extends Controller
                         'chunck_new_data' => $newInfo,
                         'status_id' => $status_id,
                     ]);
-
                 }
             }
         }
 
         return redirect()->back();
-
     }
-
 }

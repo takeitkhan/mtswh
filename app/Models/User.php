@@ -46,6 +46,10 @@ class User extends Authenticatable
         return $this->hasMany('\App\Models\Roleuser', 'user_id', 'id');
     }
 
+    public function roleUsers()
+    {
+        return $this->belongsToMany(Role::class, 'role_user', 'user_id', 'role_id');
+    }
     public static function getColumn($id, $columnName){
         $value = User::where('id', $id)->first();
         return $value->$columnName ?? NUll;

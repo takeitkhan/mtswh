@@ -27,12 +27,12 @@
                 <div class="form-group"> 
                     <label for="name">Name: </label>
                     <input type="text" class="form-control" placeholder="Enter {{$thisAttrIndex}} name" name="value"
-                        value="{{ !empty($attribute) ? $attribute->value : old('value') }}" required>
+                        value="{{ !empty($attribute) ? $attribute->value : old('value') }}" id="nameInput" required>
                 </div>
                 <div class="form-group"> 
                     <label for="slug">Slug: </label>
                     <input type="text" class="form-control" placeholder="Enter {{$thisAttrIndex}} slug" name="slug"
-                        value="{{ !empty($attribute) ? $attribute->slug : old('slug') }}">
+                        value="{{ !empty($attribute) ? $attribute->slug : old('slug') }}" id="slugInput" required>
                 </div>
 
                 <div class="form-group select arrow_class"> 
@@ -63,7 +63,7 @@
         </div><!-- ENd Form-->
         <div class="col-md-1"></div>
         <!-- Data -->
-        <div class="col-md-2 table-wrapper desktop-view mobile-view">
+        <div class="table-wrapper col-md-2 desktop-view mobile-view">
             <h6> 
                 <div class="title-with-border"> 
                     All {{$thisAttrName}}
@@ -96,4 +96,20 @@
         </div>
     </div>
 </div>
+@endsection
+@section('cusjs')
+<script>
+    const nameInput = document.getElementById('nameInput');
+    const slugInput = document.getElementById('slugInput');
+
+    nameInput.addEventListener('input', function() {
+        let slug = nameInput.value
+            .toLowerCase()                // convert to lowercase
+            .replace(/[^a-z0-9\s-]/g, '') // remove special characters
+            .trim()                        // remove leading/trailing spaces
+            .replace(/\s+/g, '-')          // replace spaces with hyphens
+            .replace(/-+/g, '-');          // replace multiple hyphens with single
+        slugInput.value = slug;
+    });
+</script>
 @endsection

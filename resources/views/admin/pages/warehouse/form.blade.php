@@ -75,7 +75,7 @@
                     <h6> 
                     <div class="title-with-border"> 
                         Assign user to role
-                        <a href="javascript:void(0);" class="add_button d-inline-block float-end valign-text-bottom me-2" title="Add field"><i
+                        <a href="javascript:void(0);" class="d-inline-block valign-text-bottom float-end me-2 add_button" title="Add field"><i
                             class="fa fa-plus"></i></a>
                         </div> 
                     </h6>
@@ -88,7 +88,7 @@
                             foreach($assignedUser as $data){ 
                         ?>
                         <div>
-                            <select name="assign_user[0{{$data->id}}][user_id]" class="select select-box" id="" required>
+                            <select name="assign_user[0{{$data->id}}][user_id]" class="select-box select" id="" required>
                                 <option value="">Select user</option>
                                 @foreach ($users as $user)
                                     <option value="{{ $user->id }}" 
@@ -97,7 +97,7 @@
                                     </option>
                                 @endforeach
                             </select>
-                            <select name="assign_user[0{{$data->id}}][role_id]" class="select select-box" id="" required>
+                            <select name="assign_user[0{{$data->id}}][role_id]" class="select-box select" id="" required>
                                 <option value="">Select role</option>
                                 @foreach ($roles as $role)
                                     <option value="{{ $role->id }}"
@@ -106,8 +106,9 @@
                                     </option>
                                 @endforeach
                             </select>
-                            <a href="javascript:void(0);" class="remove_button d-inline-block ms-3 valign-text-bottom" title="Remove field"><i
-                                class="fa fa-times"></i></a>
+                            <a href="javascript:void(0);" class="d-inline-block valign-text-bottom ms-3 remove_button" title="Remove field">
+                                <i class="fa fa-times"></i>
+                            </a>
                         </div>
                         <?php 
                             }
@@ -128,19 +129,19 @@
 
 <script type="text/template" data-template="tem">
     
-        <select class="select select-box assign_user_add_more" required>
+        <select class="select-box select assign_user_add_more" required>
             <option value="">Select user</option>
             @foreach ($users as $user)
                 <option value="{{ $user->id }}">{{ $user->name }}</option>
             @endforeach
         </select>
-        <select class="select select-box assign_role_add_more" required>
+        <select class="select-box select assign_role_add_more" required>
             <option value="">Select role</option>
             @foreach ($roles as $role)
                 <option value="{{ $role->id }}">{{ $role->name }}</option>
             @endforeach
         </select>
-        <a href="javascript:void(0);" class="remove_button d-inline-block ms-3 valign-text-bottom" title="Remove field"><i
+        <a href="javascript:void(0);" class="d-inline-block valign-text-bottom ms-3 remove_button" title="Remove field"><i
                 class="fa fa-times"></i></a>
     
 </script>
