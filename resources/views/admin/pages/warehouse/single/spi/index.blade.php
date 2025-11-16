@@ -36,6 +36,7 @@
             {"title": "Status", "data": "spi_last_status"},
             {"title": "Project", "data": "project"},
             {"title": "Transaction Type", "data": "tran_type"},
+            {"title": "Requested By", "data": "requested_by"},
             {"title": "To Whom", "data": "sources"},
             {"title": "To root",  "data": "root_source"},
             {"title": "Action Performed By", "data": "action_performed_by"},

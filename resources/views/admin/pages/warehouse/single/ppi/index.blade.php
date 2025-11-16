@@ -36,6 +36,7 @@
             {"title": "Status", "data": "ppi_last_status"},
             {"title": "Project", "data": "project"},
             {"title": "Transaction Type", "data": "tran_type"},
+            {"title": "Requested By", "data": "requested_by"},
             {"title": "Sources", "data": "sources"},
             {"title": "Root Source", "data": "root_source"},
             {"title": "Action Performed By", "data": "action_performed_by"},

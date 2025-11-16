@@ -136,6 +136,22 @@
                         </div>
 
                     </div>
+                    <div class="row">
+                        <div class="col-md-2">
+                            <div class="form-group d-block">
+                                <label for="tran_type">Requested By</label>
+                                <input type="text" class="form-control" name="requested_by"
+                                           value="{{$ppi->requested_by??NULL}}" {{$disabled}}>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group d-block">
+                                <label for="tran_type">Received By</label>
+                                <input type="text" class="form-control" name="received_by"
+                                           value="{{$ppi->received_by??NULL}}" {{$disabled}}>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="form-group">
                         @if(!empty($ppi))

@@ -12,7 +12,8 @@ class PpiSpi extends Model
     use HasFactory;
     protected $table = 'ppi_spis';
     protected $fillable = [
-        'action_format', 'ppi_spi_type', 'project', 'tran_type', 'note','warehouse_id', 'action_performed_by' , 'transferable', 'purchase'
+        'action_format', 'ppi_spi_type', 'project', 'tran_type', 'requested_by', 'received_by',
+        'note','warehouse_id', 'action_performed_by' , 'transferable', 'purchase'
     ];
 
     public function stock(){

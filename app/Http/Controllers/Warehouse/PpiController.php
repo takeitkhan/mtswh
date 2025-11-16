@@ -60,6 +60,8 @@ class PpiController extends SingleWarehouseController
             'ppi_spi_type' => $request->ppi_type,
             'project' => $request->project,
             'tran_type' => $request->tran_type,
+            'requested_by' => $request->requested_by,
+            'received_by' => $request->received_by,
             'note' => $request->note,
             'transferable' => $request->transferable ? 'yes' : null,
             'warehouse_id' => request()->get('warehouse_id'),
@@ -231,6 +233,7 @@ class PpiController extends SingleWarehouseController
             'ppi_type' => '"<span class=\"$checkDisputes\">".$data->ppi_spi_type."</span>"',
             'project' => '$data->project',
             'tran_type' => '$data->tran_type',
+            'requested_by' => '$data->requested_by',
             'ppi_last_status' => '$purcchaseIcon.$transferIcon."<span title=\"{$this->Model(\'User\')::getColumn($ppiLastSts->action_performed_by, \'name\')}\" class=\"py-0 px-1 alert-{$ppiLastSts->status_type}\">
                             {$ppiLastStatus}
                             </span>"',

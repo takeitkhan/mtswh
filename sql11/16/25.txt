@@ -1,0 +1,2 @@
+ALTER TABLE `ppi_spis` ADD `requested_by` VARCHAR(255) NULL COMMENT 'added on 11/16/25' AFTER `tran_type`, ADD `received_by` VARCHAR(255) NULL COMMENT 'added on 11/16/25' AFTER `requested_by`;
+

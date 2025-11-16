@@ -62,6 +62,8 @@ class SpiController extends SingleWarehouseController
             'ppi_spi_type' => $request->spi_type,
             'project' => $request->project,
             'tran_type' => $request->tran_type,
+            'requested_by' => $request->requested_by,
+            'received_by' => $request->received_by,
             'note' => $request->note,
             'transferable' => $request->transferable ? 'yes' : null,
             'warehouse_id' => request()->get('warehouse_id'),
@@ -181,7 +183,7 @@ class SpiController extends SingleWarehouseController
     
                 $btnClass = ($spi->status_type === 'success-complete') ? 'btn-success' : 'btn-warning';
     
-                $links .= '<a class="btn btn-sm ' . $btnClass . ' me-2 mb-1" href="' . $url . '" target="_blank">' . $spi->ppi_spi_id . '</a>';
+                $links .= '<a class="me-2 mb-1 btn btn-sm ' . $btnClass . '" href="' . $url . '" target="_blank">' . $spi->ppi_spi_id . '</a>';
             }
             $links .= '</div>';
             return $links;
@@ -275,6 +277,7 @@ class SpiController extends SingleWarehouseController
             'spi_type' => '"<span class=\"$checkDisputes\">".$data->ppi_spi_type."</span>"',
             'project' => '$data->project',
             'tran_type' => '$data->tran_type',
+            'requested_by' => '$data->requested_by',
             'spi_last_status' => '$transferIcon."<span title=\"{$this->Model(\'User\')::getColumn($spiLastSts->action_performed_by, \'name\')}\" class=\"py-0 px-1 alert-{$spiLastSts->status_type}\">
                             {$spiLastStatus}
                             </span>"',
