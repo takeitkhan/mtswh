@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Helpers\Query;
 
+
 Auth::routes();
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
@@ -55,6 +56,8 @@ Route::group([
     require_once 'modules/contact.php';
     /** Attibute Route */
     require_once 'modules/attribute.php';
+    /** Pdfs Route */
+    require_once 'modules/pdfs.php';
 });
 
 Route::get('barcode_print_test', function () {
