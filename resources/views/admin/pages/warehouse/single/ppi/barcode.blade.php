@@ -7,7 +7,7 @@
 @section('onlytitle')
     Physical Validation
     <a href="{{ route('ppi_edit', [request()->get('warehouse_code'), $ppi_id]) }}"
-       class="btn btn-sm btn-outline-primary py-0">Back</a>
+       class="py-0 btn-outline-primary btn btn-sm">Back</a>
 @endsection
 
 @section('filter')
@@ -57,7 +57,7 @@
                                     <thead>
                                     <tr>
                                         <th>
-                                        {{-- <input type="checkbox" id="checkAllCheckBox" class="h-auto mb-0" value=""> --}}
+                                        {{-- <input type="checkbox" id="checkAllCheckBox" class="mb-0 h-auto" value=""> --}}
                                         </td>
                                         <th class="text-center">Product Name
                                         </td>
@@ -174,7 +174,7 @@
 
                                             <td class="text-center">
                                                 @if($checkExistingWithDB || $checkStockInThisProduct)
-                                                    <span class="badge bg-success">
+                                                    <span class="bg-success badge">
                                                             Stocked In
                                                         </span>
                                                 @else
@@ -182,7 +182,7 @@
                                                         @if ($ppiLastStatusCode == 'ppi_agreed_no_dispute' ||  $ppiLastStatusCode == 'ppi_existing_product_added_to_stock')
                                                             @if($barcode_format == 'Tag' || $barcode_format == 'Bundle-Tag')
                                                                 <button type="button" id=""
-                                                                        class="btn btn-sm btn-outline-info py-0 existingProduct"
+                                                                        class="py-0 btn-outline-info btn btn-sm existingProduct"
                                                                         data-barcode="{!! $barCodeDigit !!}"
                                                                         data-orginal_barcode="{!! $orginalBarCodeDigit !!}"
                                                                         data-ppi_product_id="{{ $ppi_product_id }}"
@@ -208,14 +208,14 @@
             </div>
             <div class="col-md-4">
                 <h6>
-                    <div class="title-with-border mb-0 alert-secondary px-2 text-dark border-0">
+                    <div class="mb-0 px-2 title-with-border border-0 text-dark alert-secondary">
                         Information of the selected product
                     </div>
                 </h6>
                 <!--=====================================
                 =========Product Information Table========
                 =====================================--->
-                <table class="table table-sm table-bordered table-thin">
+                <table class="table table-bordered table-sm table-thin">
                     <tbody>
                     @if (!empty($product))
                         @if ($set_product)
@@ -295,16 +295,16 @@
                                 @if ($checkThisProductIsDisputeNow == 'Dispute'  && ($ppiLastMainStatus->code != 'ppi_resent_to_wh_manager'))
 
                                 @else
-                                    <div class="text-start mb-2">
+                                    <div class="mb-2 text-start">
                                         @if ($ppiLastStatusCode == 'ppi_agreed_no_existing')
                                             <div id="btnWrapperBarcodeStockIn" class="d-inline-block">
 
                                                 @if($barcode_format == 'Tag' || $barcode_format ==  'Bundle-Tag')
-                                                    <a class="btn btn-sm btn-primary py-0" type="button" onclick="PrintDiv()">Start
+                                                    <a class="py-0 btn btn-sm btn-primary" type="button" onclick="PrintDiv()">Start
                                                         to Print Barcode Tag</a>
                                                 @endif
 
-                                                <a href="#" id="printBarcodeStockIn" class="btn btn-sm btn-success py-0">
+                                                <a href="#" id="printBarcodeStockIn" class="py-0 btn btn-sm btn-success">
                                                     Stock In
                                                 </a>
 
@@ -320,8 +320,9 @@
                                         @else
                                             @if(auth()->user()->hasRoutePermission('ppi_dispute_by_wh_manager_action'))
                                                 <div style="font-size: 11px;">
-                                                    <input id="agreeallok" type="checkbox" style="height: 12px;"/>
+                                                    <input id="agreeallok" type="checkbox" style="height: 12px;" checked="checked" />
                                                     <label for="agreeallok">I agree that there are no dispute.</label>
+                                                    <small>আপনার কাজ কমাতে এখানে শুরুতে সেভ বাটন একটিভ আকারে দেয়া হয়েছে, Dispute দিতে দয়া করে নীল কালারের বাটন আনচেক করুন।</small>
                                                 </div>
 
                                                 <div id="btnWrapper" class="d-inline-block">
@@ -345,11 +346,11 @@
             ======= Dispute Status ==========
             =============================-->
                 <h6>
-                    <div class="title-with-border mb-0 alert-secondary px-2 text-dark border-0">
+                    <div class="mb-0 px-2 title-with-border border-0 text-dark alert-secondary">
                         Dispute Status
                     </div>
                 </h6>
-                <table class="table table-sm table-bordered table-thin">
+                <table class="table table-bordered table-sm table-thin">
                     @php
                         $ppiDisputeCorrectionList = $Model('PpiSpiDispute')::ppiDisputeCorrectionList('Ppi', $product->id);
                     @endphp
@@ -368,7 +369,7 @@
                                 </td>
                                 <td class="table-success">
                                     @if ($item->correction_dispute_id)
-                                        <i class="fa fa-check-circle m-0 h3 w-auto text-success"
+                                        <i class="m-0 w-auto text-success fa fa-check-circle h3"
                                            style="font-size: 15px;"></i>
                                         Performed
                                         By {{ $Model('User')::getColumn($item->correction_action_by, 'name') }}
@@ -395,7 +396,7 @@
             </div>
             <div class="col-md-2">
                 <h6>
-                    <div class="title-with-border mb-0 alert-secondary px-2 text-dark border-0">
+                    <div class="mb-0 px-2 title-with-border border-0 text-dark alert-secondary">
                         PPI ID : {{ $ppi_id }}
                     </div>
                 </h6>
@@ -438,23 +439,23 @@
                     <input type="hidden" name="dispute_ele[{{ $product->id }}][ppi_product_id]"
                            value="{{ $product->id }}">
                     <input type="hidden" name="dispute_ele[{{ $product->id }}][action_format]" value="Dispute">
-                    <div class="form-check text-dark text-center">
-                        <input type="checkbox" id="{{ $product->id }}p_product" class="w-auto checkItem ms-3 me-0"
+                    <div class="text-dark text-center form-check">
+                        <input type="checkbox" id="{{ $product->id }}p_product" class="ms-3 me-0 w-auto checkItem"
                                name="dispute_ele[{{ $product->id }}][issue_column][product]" id="" value="product">
                         <label class="w-auto" for="{{ $product->id }}p_product">Product</label>
-                        <input type="checkbox" id="{{ $product->id }}p_qty" class="w-auto checkItem ms-3 me-0"
+                        <input type="checkbox" id="{{ $product->id }}p_qty" class="ms-3 me-0 w-auto checkItem"
                                name="dispute_ele[{{ $product->id }}][issue_column][qty]" id="" value="qty">
                         <label class="w-auto" for="{{ $product->id }}p_qty">Quantity</label>
                     <!--
-                        <input type="checkbox" id="{{ $product->id }}p_price" class="w-auto checkItem ms-3 me-0" name="dispute_ele[{{ $product->id }}][issue_column][price]" value="price">
+                        <input type="checkbox" id="{{ $product->id }}p_price" class="ms-3 me-0 w-auto checkItem" name="dispute_ele[{{ $product->id }}][issue_column][price]" value="price">
                         <label class="w-auto" for="{{ $product->id }}p_price">Price</label>
                         -->
                     </div>
                     <label class="w-auto" for="">Details of issue</label>
                     <textarea required class="form-control" name="dispute_ele[{{ $product->id }}][note]"
                               placeholder="Details of issue"></textarea>
-                    <div class="d-grid gap-2">
-                        <button type="submit" onclick="return confirm('Are you sure want to dispute this item?');" class="btn btn-outline-primary btn-sm mt-2">Submit</button>
+                    <div class="gap-2 d-grid">
+                        <button type="submit" onclick="return confirm('Are you sure want to dispute this item?');" class="mt-2 btn-outline-primary btn btn-sm">Submit</button>
                     </div>
                 </script>
 
@@ -478,16 +479,16 @@
                          * Button
                          * */
                             //If Do Dispute
-                        let dispute = '<a id="disputeBtn" class="btn btn-sm btn-outline-danger py-0">Dispute</a>';
+                        let dispute = '<a id="disputeBtn" class="py-0 btn-outline-danger btn btn-sm">Dispute</a>';
                         //If I agreen there areo no dispute
                         let iAgreeThereAreNoDispute =
-                            '<button type="button" id="noDisputeModal" class="btn btn-sm btn-primary py-0" >Save</button>';
+                            '<button type="button" id="noDisputeModal" class="py-0 btn btn-sm btn-primary" >Save</button>';
 
                         let iAgreeThereAreNoExisting =
-                            '<button type="button" id="noExistingModal" class="btn btn-sm btn-primary py-0" >Save</button>';
+                            '<button type="button" id="noExistingModal" class="py-0 btn btn-sm btn-primary" >Save</button>';
                         // //Print Barcode and Stock In
                         let printBarcodeStockIn =
-                            '<a href="#" id="printBarcodeStockIn" class="btn btn-sm btn-outline-primary py-0">Print Barcode and Stock In</a>';
+                            '<a href="#" id="printBarcodeStockIn" class="py-0 btn-outline-primary btn btn-sm">Print Barcode and Stock In</a>';
 
                         /** I agree There are no dispute Input Box Action*/
                         $('input#agreeallok').click(function () {
@@ -667,7 +668,7 @@
                     /** Barcode reader Apply In Input Field */
                     // $('#reload_modal').bind('keydown paste', barcodeInputField, function () {
                     //     //alert($(this).val());
-                    //     let html = '<button type="button" class="btn btn-primary btn-sm mt-2">Submit</button>';
+                    //     let html = '<button type="button" class="mt-2 btn btn-primary btn-sm">Submit</button>';
                     //     $('#reload_modal .saveBtnForExistingProductStockIn').html(html);
                     // })
 
@@ -688,7 +689,7 @@
                         setTimeout(function () {
                             let userEnteredText = $(element).val();
                             // alert(userEnteredText);
-                            let html = `<button type="button" class="btn btn-primary btn-sm mt-2" data-input_val="${userEnteredText}">Submit</button>`;
+                            let html = `<button type="button" class="mt-2 btn btn-primary btn-sm" data-input_val="${userEnteredText}">Submit</button>`;
                             $('#reload_modal .saveBtnForExistingProductStockIn').html(html);
                             if (key == 13) {
                                 // alert(userEnteredText)

@@ -61,12 +61,12 @@
         </div><!-- ENd Form-->
         <div class="col-md-1"></div>
         <!-- Data -->
-        <div class="col-md-8 table-wrapper desktop-view mobile-view">
+        <div class="table-wrapper col-md-8 desktop-view mobile-view">
             <h6>
                 <div class="title-with-border">
                     All Category
                     <div class="float-end">
-                        <a href="{{route('project_import_mts_project')}}" class="btn btn-sm btn-outline-primary h-22 p-0 px-2">Import Project from MTS Project</a>
+                        <a href="{{route('project_import_mts_project')}}" class="p-0 px-2 btn-outline-primary h-22 btn btn-sm">Import Project from MTS Project</a>
                     </div>
                 </div>
             </h6>
