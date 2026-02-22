@@ -1,6 +1,9 @@
 @if($spi->transferable)
     @php
         $spiComplete = $Model('PpiSpiStatus')::getSpiLastStatus($spi->id)->code;
+        $challanGenerated = $Model('PpiSpiStatus')::where('ppi_spi_id', $spi->id)
+                                                  ->where('code', 'spi_delivery_challan_generated')
+                                                  ->exists();
     @endphp
         @if($spiComplete ==  'spi_all_steps_complete')
            @php
@@ -18,119 +21,75 @@
     <div class="d-inline-block ms-2" id="ppi_action">
     <form action="" method="post" id="ppi_action_form">
         @csrf
-        <!-- ====================================================
-           # PPI Sent To Boss
-           # PPI Correction(If Boss Dispute)
-           # Direct PPI Sent To Warehouse Manager (If Boss Dispute)
-        ========================================================= -->
-        @if($generalUser && auth()->user()->hasRoutePermission('spi_sent_to_boss_action'))
-            @php
-                $ppiStatusFormAction =  route('spi_sent_to_boss_action', [$warehouse_code, $spi->id, 'spi_sent_to_boss']);
-                $ppiStatusFormBtnText = 'Sent to Boss';
-                $ppiStatusFormBtnClass = 'indigo';
-                $doneThisAction = $Model('PpiSpiStatus')::checkSpiStatus($spi->id, 'spi_sent_to_boss');
-                if($doneThisAction === true){
-                     $doneThisActionButton = true;
-                }
-            @endphp
-
-        <!-- ===============================
-           # Boss Can Correction on Dispute Product
-           # Boss Sent to Warehouse Manager
-        ==================================== -->
-        @elseif($generalUser && auth()->user()->hasRoutePermission('spi_sent_to_wh_manager_action'))
-            @php
-                //echo $checkPpiLastSts->code;
-                //$checkPpiLastSts->code == 'ppi_sent_to_boss'
-                if($checkSpiLastMainSts->code == 'spi_sent_to_boss'){
-                    $ppiStatusFormAction =  route('spi_sent_to_wh_manager_action', [$warehouse_code, $spi->id, 'spi_sent_to_wh_manager']);
-                    $ppiStatusFormBtnText = 'Sent to Warehouse Manager';
-                    $ppiStatusFormBtnClass = 'indigo';
-                    $doneThisAction =   false;
-                    $doneThisActionButton = false;
-                }elseif($checkSpiLastMainSts->code  == 'spi_dispute_by_wh_manager'){
-                    $ppiStatusFormAction =  route('spi_resent_to_wh_manager_action', [$warehouse_code, $spi->id, 'spi_resent_to_wh_manager']);
-                    $ppiStatusFormBtnText = 'Re Sent to Warehouse Manager';
-                    $ppiStatusFormBtnClass = 'teal';
-                    $doneThisAction =   false;
-                    $doneThisActionButton = false;
-                }
-                elseif($checkSpiLastMainSts->code  == 'spi_sent_to_wh_manager'){
-                    $doneThisAction =  true;
-                    $doneThisActionButton = true;
-                }elseif($checkSpiLastMainSts->code  == 'spi_correction_done_by_boss'){
-                    $ppiStatusFormAction =  route('spi_resent_to_wh_manager_action', [$warehouse_code, $spi->id, 'spi_resent_to_wh_manager']);
-                    $ppiStatusFormBtnText = 'Re Sent to Warehouse Manager';
-                    $ppiStatusFormBtnClass = 'teal';
-                    $doneThisAction = false;
-                    $doneThisActionButton = true;
-                } elseif($checkSpiLastMainSts->code  == 'spi_dispute_by_wh_manager'){
-                    $doneThisAction =  false;
-                    $doneThisActionButton = false;
-                }elseif($checkSpiLastMainSts->code  == 'spi_resent_to_wh_manager'){
-                    $doneThisAction =   true;
-                    $doneThisActionButton = true;
-                }else {
-                    $doneThisAction =   true;
-                    $doneThisActionButton = true;
-                }
-            @endphp
-
-
-
-        <!--==================================
-            # Warehouse Manager Can Dispute
-        ====================================-->
-        @elseif($generalUser && auth()->user()->hasRoutePermission('spi_dispute_by_wh_manager_action'))
-            @php
-                // Check if Delivery Challan has been generated
-                $challanGenerated = $Model('PpiSpiStatus')::where('ppi_spi_id', $spi->id)
-                                                          ->where('code', 'spi_delivery_challan_generated')
-                                                          ->exists();
-                
-                if($challanGenerated){
-                    $ppiStatusFormAction =  route('spi_all_steps_complete_action', [$warehouse_code, $spi->id, 'spi_all_steps_complete']);
-                    $ppiStatusFormBtnText = 'Close this SPI';
-                    $ppiStatusFormBtnClass = 'indigo';
-                    $doneThisAction =   false;
-                    $doneThisActionButton = true;
-                }else {
-                    $doneThisAction =   true;
-                    $doneThisActionButton = true;
-                }
-            @endphp
-
-        @endif
-
+        
         @php
-              $spiComplete = $Model('PpiSpiStatus')::getSpiLastStatus($spi->id)->code;
-              if($spiComplete ==  'spi_all_steps_complete'){
-                  $doneThisAction =  true;
-                  $doneThisActionButton = true;
-              }
-        @endphp
-
-        @php
-            $globalUser =  auth()->user()->checkUserRoleTypeGlobal();
-            // Check if Delivery Challan has been generated for global user too
+            // Initialize all variables
+            $ppiStatusFormAction = null;
+            $ppiStatusFormBtnText = null;
+            $ppiStatusFormBtnClass = null;
+            $doneThisAction = true;
+            $doneThisActionButton = true;
+            
+            $generalUser = auth()->user()->checkUserRoleTypeGeneral();
+            $globalUser = auth()->user()->checkUserRoleTypeGlobal();
+            $spiComplete = $Model('PpiSpiStatus')::getSpiLastStatus($spi->id)->code;
             $challanGenerated = $Model('PpiSpiStatus')::where('ppi_spi_id', $spi->id)
                                                       ->where('code', 'spi_delivery_challan_generated')
                                                       ->exists();
-            
-            if($globalUser && $challanGenerated && $spiComplete != 'spi_all_steps_complete'){
-               $ppiStatusFormAction =  route('spi_all_steps_complete_action', [$warehouse_code, $spi->id, 'spi_all_steps_complete']);
+        @endphp
+        
+        <!-- If SPI is already completed -->
+        @if($spiComplete == 'spi_all_steps_complete')
+            @php
+                $doneThisAction = true;
+                $doneThisActionButton = true;
+            @endphp
+        <!-- Warehouse Manager can Close SPI only after Challan Generated -->
+        @elseif($generalUser && auth()->user()->hasRoutePermission('spi_dispute_by_wh_manager_action') && $challanGenerated)
+            @php
+                $ppiStatusFormAction = route('spi_all_steps_complete_action', [$warehouse_code, $spi->id, 'spi_all_steps_complete']);
                 $ppiStatusFormBtnText = 'Close this SPI';
                 $ppiStatusFormBtnClass = 'indigo';
-                $doneThisAction =  false;
-                $doneThisActionButton = false;
-            }elseif($globalUser) {
+                $doneThisAction = false;
+                $doneThisActionButton = true;
+            @endphp
+        <!-- Global User can Close SPI only after Challan Generated -->
+        @elseif($globalUser && $challanGenerated && $spiComplete != 'spi_all_steps_complete')
+            @php
+                $ppiStatusFormAction = route('spi_all_steps_complete_action', [$warehouse_code, $spi->id, 'spi_all_steps_complete']);
+                $ppiStatusFormBtnText = 'Close this SPI';
+                $ppiStatusFormBtnClass = 'indigo';
                 $doneThisAction = false;
                 $doneThisActionButton = false;
-            }
-        @endphp
+            @endphp
+        <!-- Boss workflow -->
+        @elseif($generalUser && auth()->user()->hasRoutePermission('spi_sent_to_wh_manager_action') && $checkSpiLastMainSts)
+            @php
+                if($checkSpiLastMainSts->code == 'spi_sent_to_boss') {
+                    $ppiStatusFormAction = route('spi_sent_to_wh_manager_action', [$warehouse_code, $spi->id, 'spi_sent_to_wh_manager']);
+                    $ppiStatusFormBtnText = 'Sent to Warehouse Manager';
+                    $ppiStatusFormBtnClass = 'indigo';
+                    $doneThisAction = false;
+                    $doneThisActionButton = false;
+                } else {
+                    $doneThisAction = true;
+                    $doneThisActionButton = true;
+                }
+            @endphp
+        <!-- Subordinate workflow -->
+        @elseif($generalUser && auth()->user()->hasRoutePermission('spi_sent_to_boss_action'))
+            @php
+                $ppiStatusFormAction = route('spi_sent_to_boss_action', [$warehouse_code, $spi->id, 'spi_sent_to_boss']);
+                $ppiStatusFormBtnText = 'Sent to Boss';
+                $ppiStatusFormBtnClass = 'indigo';
+                $checkStatus = $Model('PpiSpiStatus')::checkSpiStatus($spi->id, 'spi_sent_to_boss');
+                $doneThisAction = $checkStatus;
+                $doneThisActionButton = $checkStatus ? true : false;
+            @endphp
+        @endif
 
-        <!-- Generate Delivery Challan PDF Button (Before Close) -->
-        @if($spiComplete != 'spi_all_steps_complete')
+        <!-- Generate Delivery Challan PDF Button (Show before challan is generated) -->
+        @if($spiComplete != 'spi_all_steps_complete' && !$challanGenerated && $generalUser && auth()->user()->hasRoutePermission('spi_dispute_by_wh_manager_action'))
             <div class="mt-3 mb-3">
                 <button type="button"
                         id="generateChallanBtn"
@@ -142,8 +101,6 @@
                 </button>
             </div>
         @endif
-
-
 
         <!-- Button For Action -->
         @isset($ppiStatusFormAction)
@@ -157,22 +114,6 @@
                 {!!
                     $Component::confirmModal('ppiActionModal', 'form#ppi_action_form', 'Are you sure?', '', '')
                 !!}
-                <?php /*
-                @if(isset($disputeRoute))
-                <button type="button"
-                    data-bs-toggle="modal"
-                    data-bs-target="#ppiActionModal"
-                    data-url = "{{$disputeRoute}}"
-                    class="btn btn-sm btn-danger text-white py-0"> Dispute </button>
-
-                {!!
-                    $Component::confirmModal('ppiActionModal', 'form#ppi_action_form', 'Are you sure?', '', '')
-                !!}
-                @endif
-                */ ?>
-
-            @endif
-        @endisset
 
     </form>
 </div>
