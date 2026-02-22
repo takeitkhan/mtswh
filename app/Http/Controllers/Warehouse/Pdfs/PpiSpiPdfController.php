@@ -442,27 +442,56 @@ class PpiSpiPdfController extends Controller
     private function makeDeliveryChallanPdf(string $warehouse_code, int $spi_id, string $status = '')
     {
         try {
+            // Fetch SPI with related data
             $spi = PpiSpi::where('id', $spi_id)
                             ->where('action_format', 'Spi')
-                            ->with('spiProducts')
+                            ->with(['spiProducts.productInfo.unit'])
                             ->firstOrFail();
 
             $warehouse = Warehouse::where('code', $warehouse_code)->firstOrFail();
 
+            // Get warehouse manager info
+            $spiActionPerformedBy = PpiSpiStatus::where('ppi_spi_id', $spi_id)
+                                ->where('status_for', 'Spi')
+                                ->where('code', 'spi_all_steps_complete')
+                                ->orderBy('id', 'desc')->first();
+            
+            $performedBy = $spiActionPerformedBy ? $spiActionPerformedBy->performedBy : null;
+
+            // Ensure tempDir exists & writable
+            $tempDir = storage_path('app/mpdf_temp');
+            if (!is_dir($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
+
             $mpdf = new Mpdf([
-                'format' => 'A4',
-                'margin_top' => 20,
-                'margin_bottom' => 20,
-                'margin_left' => 15,
-                'margin_right' => 15,
+                'format'       => 'A4',
+                'margin_top'   => 25,
+                'margin_bottom'=> 25,
+                'margin_header'=> 10,
+                'margin_footer'=> 10,
+                'tempDir'      => $tempDir,
             ]);
 
-            // HTML for Delivery Challan
-            $html = view('pdf.delivery-challan', [
-                'spi' => $spi,
-                'warehouse' => $warehouse,
-                'status' => $status
-            ])->render();
+            $logoPath          = public_path('assets/images/logo.jpg');
+            $locationLogoPath  = public_path('assets/images/pin.png');
+            $footerLogoPath    = public_path('assets/images/footer_logo.jpg');
+            $telephoneLogoPath = public_path('assets/images/smartphone.png');
+            $globeLogoPath     = public_path('assets/images/globe.png');
+
+            // === HEADER ===
+            $headerHtml = view('pdf.spi.delivery-challan-header', compact('spi', 'warehouse', 'logoPath'))->render();
+            $mpdf->SetHTMLHeader($headerHtml);
+
+            // === FOOTER ===
+            $footerHtml = view('pdf.spi.delivery-challan-footer', compact('footerLogoPath', 'locationLogoPath', 'telephoneLogoPath', 'globeLogoPath'))->render();
+            $mpdf->SetHTMLFooter($footerHtml);
+
+            // === BODY ===
+            $html = view('pdf.spi.delivery-challan-body', compact(
+                'spi', 'warehouse', 'logoPath', 'footerLogoPath', 'locationLogoPath',
+                'telephoneLogoPath', 'globeLogoPath', 'performedBy'
+            ))->render();
 
             $mpdf->WriteHTML($html);
             
