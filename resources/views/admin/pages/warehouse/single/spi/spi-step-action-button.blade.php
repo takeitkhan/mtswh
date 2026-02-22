@@ -83,7 +83,12 @@
         ====================================-->
         @elseif($generalUser && auth()->user()->hasRoutePermission('spi_dispute_by_wh_manager_action'))
             @php
-                if($singleProductValidationDone){
+                // Check if Delivery Challan has been generated
+                $challanGenerated = $Model('PpiSpiStatus')::where('ppi_spi_id', $spi->id)
+                                                          ->where('code', 'spi_delivery_challan_generated')
+                                                          ->exists();
+                
+                if($challanGenerated){
                     $ppiStatusFormAction =  route('spi_all_steps_complete_action', [$warehouse_code, $spi->id, 'spi_all_steps_complete']);
                     $ppiStatusFormBtnText = 'Close this SPI';
                     $ppiStatusFormBtnClass = 'indigo';
@@ -107,7 +112,12 @@
 
         @php
             $globalUser =  auth()->user()->checkUserRoleTypeGlobal();
-            if($globalUser && $singleProductValidationDone  && $spiComplete != 'spi_all_steps_complete'){
+            // Check if Delivery Challan has been generated for global user too
+            $challanGenerated = $Model('PpiSpiStatus')::where('ppi_spi_id', $spi->id)
+                                                      ->where('code', 'spi_delivery_challan_generated')
+                                                      ->exists();
+            
+            if($globalUser && $challanGenerated && $spiComplete != 'spi_all_steps_complete'){
                $ppiStatusFormAction =  route('spi_all_steps_complete_action', [$warehouse_code, $spi->id, 'spi_all_steps_complete']);
                 $ppiStatusFormBtnText = 'Close this SPI';
                 $ppiStatusFormBtnClass = 'indigo';
