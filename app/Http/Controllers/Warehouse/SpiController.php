@@ -257,6 +257,7 @@ class SpiController extends SingleWarehouseController
                 $checkDisputes = $thiss->Model("PpiSpiDispute")::where("ppi_spi_id", $data->id)->get()->count() ?? 0;
                 $checkDisputes =  $checkDisputes > 0 ? " alert-danger" : false;
                 $spiLastSts = $thiss->Model("PpiSpiStatus")::getSpiLastStatus($data->id);
+                $spiMainSts = $thiss->Model("PpiSpiStatus")::getSpiLastMainStatus($data->id);
                 $role = request()->get("currentUserRole");
                 $transferIcon = $data->transferable== "yes" ? "
                         <i title=\"transfer\" style=\"display: inline;border-radius: 100%;border: 1px solid #fd7e14;padding: 3px;font-size: 10px;\" class=\"fa fa-arrow-up text-orange\"></i>
@@ -268,11 +269,14 @@ class SpiController extends SingleWarehouseController
                         ]);
                 $spiLastStatus = $getTranslateText ?? $spiLastSts->message;
                 $checkSentToBoss = $thiss->Model("PpiSpiStatus")::checkSpiStatus($data->id, "spi_sent_to_boss");
+                $isSpiCompleted = $spiMainSts && $spiMainSts->code === "spi_all_steps_complete" ? true : false;
+                $pdfButton = $isSpiCompleted ? "<a href=\"" . route("spi_delivery_challan_view", [request()->get("warehouse_code"), $data->id, "spi_all_steps_complete"]) . "\" class=\"btn btn-sm btn-danger me-1\" title=\"Download Delivery Challan\"><i class=\"fa fa-file-pdf me-1\"></i>PDF</a>" : "";
         ';
         /** Filed Show for loop */
         $fields = [
             'button' => '(($checkSentToBoss && auth()->user()->checkUserRoleTypeGeneral()) ? null : $this->ButtonSet::delete("spi_destroy", [request()->get("warehouse_code"), $data->id]))
-            .$this->ButtonSet::edit("spi_edit", [request()->get("warehouse_code"), $data->id])',
+            .$this->ButtonSet::edit("spi_edit", [request()->get("warehouse_code"), $data->id])
+            .$pdfButton',
             'id' => '$data->id',
             'spi_type' => '"<span class=\"$checkDisputes\">".$data->ppi_spi_type."</span>"',
             'project' => '$data->project',
