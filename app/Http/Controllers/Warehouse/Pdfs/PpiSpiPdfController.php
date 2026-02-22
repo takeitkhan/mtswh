@@ -364,17 +364,21 @@ class PpiSpiPdfController extends Controller
                                             ->firstOrFail()
                                             ->id;
         
-        return PpiSpiStatus::create([
-            'ppi_spi_id'   => $spi_id,
-            'warehouse_id' => $warehouse_id,
-            'status_for'   => 'Spi',
-            'code'         => 'spi_delivery_challan_generated',
-            'message'      => 'SPI Delivery Challan has been generated',
-            'status_order' => 14,
-            'status_format'=> 'Main',
-            'status_type' => 'success',
-            'action_performed_by' => auth()->id(),
-        ]);
+        return PpiSpiStatus::updateOrCreate(
+            [
+                'ppi_spi_id'   => $spi_id,
+                'warehouse_id' => $warehouse_id,
+                'status_for'   => 'Spi',
+                'code'         => 'spi_delivery_challan_generated'
+            ],
+            [
+                'message'      => 'SPI Delivery Challan has been generated',
+                'status_order' => 14,
+                'status_format'=> 'Main',
+                'status_type' => 'success',
+                'action_performed_by' => auth()->id(),
+            ]
+        );
     }
 
     /**

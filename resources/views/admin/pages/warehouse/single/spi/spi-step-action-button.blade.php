@@ -225,6 +225,8 @@
                 let spiId     = this.dataset.spiId;
                 let status    = this.dataset.status;
                 
+                console.log('Challan button clicked:', {warehouse, spiId, status});
+                
                 // Disable button to prevent double click
                 this.disabled = true;
                 this.classList.add('disabled');
@@ -233,7 +235,10 @@
                 window.open(`/spi/${warehouse}/${spiId}/${status}/challan/pdf`, "_blank");
                 
                 // 2. Mark status (POST route)
-                fetch(`/spi/${warehouse}/${spiId}/${status}/challan-pdf`, {
+                const postUrl = `/spi/${warehouse}/${spiId}/${status}/challan-pdf`;
+                console.log('Posting to:', postUrl);
+                
+                fetch(postUrl, {
                     method: "POST",
                     headers: {
                         "X-CSRF-TOKEN": "{{ csrf_token() }}",
@@ -241,18 +246,27 @@
                     },
                     body: JSON.stringify({})
                 })
-                .then(res => res.json())
+                .then(res => {
+                    console.log('Response status:', res.status);
+                    return res.json();
+                })
                 .then(data => {
+                    console.log('Response data:', data);
                     if (data.success) {
+                        console.log('Success! Reloading page...');
                         location.reload();
+                    } else {
+                        alert('Error: ' + (data.message || 'Unknown error'));
+                        this.disabled = false;
+                        this.classList.remove('disabled');
                     }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
+                    console.error('Fetch error:', error);
+                    alert('Error: ' + error.message);
                     this.disabled = false;
                     this.classList.remove('disabled');
                 });
-
             });
         }
     });
