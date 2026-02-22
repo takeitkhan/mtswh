@@ -27,6 +27,10 @@ class PpiSpi extends Model
     public function source(){
         return $this->hasMany('\App\Models\PpiSpiSource','ppi_spi_id', 'id');
     }
+    
+    public function spiProducts() {
+        return $this->hasMany('\App\Models\SpiProduct', 'spi_id', 'id');
+    }
   
   
   
