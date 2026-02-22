@@ -41,6 +41,7 @@
             {"title": "Root Source", "data": "root_source"},
             {"title": "Action Performed By", "data": "action_performed_by"},
             {"title": "Created At", "data": "created_at"},
+            {"title": "Challan PDF", "data": "pdf"},
         ];
         loadDatatable("#product", "{{ route('ppi_api_get', $wh_code) }}", arr);
     </script>

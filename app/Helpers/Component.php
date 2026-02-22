@@ -6,8 +6,7 @@ class Component{
     public static function confirmModal($modal_id, $form_id, $title="", $subtitle, $modal_body="", $submit_button = true){
         if($submit_button == true){
             $submit = '<button type="button" id="modalCloseBtn'.$modal_id.'" class="modal-action modal-cancel" data-bs-dismiss="modal">Close</button>
-            <button type="submit" class="modal-action modal-ok" id="modalOkBtn'.$modal_id.'"
-            type="button" xonclick="$(\''.$form_id.'\').submit()"">Submit</button>';
+            <button type="button" class="modal-action modal-ok" id="modalOkBtn'.$modal_id.'" onclick="$(\''.$form_id.'\').submit()">Submit</button>';
         }else {
             $submit = '<button type="button" class="modal-action modal-cancel" data-bs-dismiss="modal">Ok</button>';
         }

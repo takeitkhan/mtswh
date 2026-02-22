@@ -2,7 +2,26 @@
     @php
         $ppiStatuses = $Model('PpiSpiStatus')::where('ppi_spi_id', $ppi_id)
                                         ->orderBy('status_order', 'desc')->get();
+        $ppiComplete = $Model('PpiSpiStatus')::getPpiLastStatus($ppi_id)->code;
     @endphp
+    
+    @if($ppiComplete == 'ppi_all_steps_complete')
+        <div class="alert alert-success mb-3" style="background-color: #d4edda; border-color: #c3e6cb;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <strong><i class="fa fa-check-circle me-2"></i>PPI Closed</strong>
+                    <p class="mb-1 small">This PPI is closed. You can view the challan PDF anytime.</p>
+                    <a href="{{ route('ppi_challan_pdf_preview', [\Request::get('warehouse_code'), $ppi_id, 'ppi_all_steps_complete']) }}" 
+                   target="_blank" 
+                    class="btn btn-sm btn-success">
+                        <i class="fa fa-file-pdf me-1"></i>View PDF
+                    </a>
+                </div>
+                
+            </div>
+        </div>
+    @endif
+    
     @foreach ($ppiStatuses as $key => $data)
         <div class="tl-item active">
             <div class="tl-dot border-{{$data->status_type}}">

@@ -15,7 +15,13 @@ class PpiSpiStatus extends Model
     public function ppispidispute(){
        return $this->hasMany('App\Models\PpiSpiDispute', 'ppi_spi_status_id', 'id');
     }
-
+    
+    public function performedBy()
+    {
+        return $this->belongsTo('App\Models\User', 'action_performed_by', 'id');
+        // 'action_performed_by' is the foreign key in this table
+        // 'id' is the local primary key in the users table
+    }
 
     /**===================================
      * =============== PPI================
@@ -44,7 +50,7 @@ class PpiSpiStatus extends Model
         if(!empty($merge['code'])){
             $status = $status->where('code', $merge['code']);
         }
-        $status = $status->orderBy('status_order', 'desc')
+        $status = $status->orderBy('id', 'desc')
                      ->first();
 
 

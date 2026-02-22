@@ -158,6 +158,37 @@
                             <input type="hidden" name="warehouse_code" value="{{ $wh_code }}">
                         </div>
                     </div>
+                    @php
+                        $users = $Model('User')::get();
+                    @endphp
+                    <div class="row">
+                        <div class="col-md-2">
+                            <div class="form-group d-block">
+                                <label for="requested_by">Requested By</label>
+                                <select name="requested_by" id="requested_by" class="form-select" required {{$disabled}}>
+                                    <option value="" selected>Select</option>
+                                    @foreach($users as $user)
+                                        <option value="{{$user->name??NULL}}"
+                                            {{!empty($spi) && $spi->requested_by === $user->name ? 'selected' : ''}}
+                                        >{{$user->name??NULL}}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <!--<input type="text" class="form-control" name=""-->
+                                <!--           value="{{$ppi->requested_by??NULL}}" {{$disabled}}>-->
+                            </div>
+                        </div>
+                        
+                        
+                        
+                        <div class="col-md-2">
+                            <div class="form-group d-block">
+                                <label for="received_by">Received By</label>
+                                <input type="text" class="form-control" name="received_by"
+                                           value="{{$spi->received_by??NULL}}" {{$disabled}}>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="form-group">
                         @if(!empty($spi))

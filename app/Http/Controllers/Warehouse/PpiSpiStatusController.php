@@ -45,9 +45,11 @@ class PpiSpiStatusController extends SingleWarehouseController
         if(request()->get('with-note')){
             $withNote = request()->get('with-note');
         }
-         if(request()->get('with-ppi_product_id')){
-             $ppiProductId = request()->get('with-ppi_product_id');
-         }
+        if(request()->get('with-ppi_product_id')){
+            $ppiProductId = request()->get('with-ppi_product_id');
+        }
+        
+        //dd('Blocking here');
         return self::ppiActionStatus([
             'wh_id' => request()->get('warehouse_id'),
             'ppi_id' => $ppi_id,
@@ -85,6 +87,24 @@ class PpiSpiStatusController extends SingleWarehouseController
         $redirect = $merge_arr['redirect'];
         $statusArr = PpiSpiHelper::ppiStatusHandler();
         $status = array_search($action, array_keys($statusArr), true) ?? null;
+        
+        // Check if this status already exists for this PPI (prevent duplicates)
+        $statusCode = $statusArr[$action]['key'] ?? null;
+        if ($statusCode && $statusCode === 'ppi_all_steps_complete') {
+            $existingStatus = PpiSpiStatus::where('ppi_spi_id', $merge_arr['ppi_id'])
+                ->where('code', 'ppi_all_steps_complete')
+                ->first();
+            
+            if ($existingStatus) {
+                // Status already exists, don't create duplicate
+                if ($redirect) {
+                    // Redirect using session or return as JSON with redirect URL
+                    return redirect()->route('ppi_edit', [request()->get('warehouse_code'), $merge_arr['ppi_id']]);
+                }
+                return $existingStatus;
+            }
+        }
+        
         $dbStatus = PpiSpiStatus::where('ppi_spi_id', $merge_arr['ppi_id'])->orderBy('id', 'desc')->first();
         $number = $dbStatus->status_order ?? 0;
         if($status !== false){
@@ -223,7 +243,8 @@ class PpiSpiStatusController extends SingleWarehouseController
             //END
             if($redirect == true){
                 if($data){
-                    return redirect()->back()->with(['status' => 1, 'message' => 'Action successfully saved']);
+                    $message = $statusArr[$action]['message'] ?? 'Action successfully saved';
+                    return redirect()->back()->with(['status' => 1, 'message' => $message]);
                 }else{
                     //return redirect()->back()->with(['status' => 0, 'message' => 'So']);
                     //return null;
@@ -448,7 +469,8 @@ class PpiSpiStatusController extends SingleWarehouseController
             //END
             if($redirect == true){
                 if($data){
-                    return redirect()->back()->with(['status' => 1, 'message' => 'Action successfully saved']);
+                    $message = $statusArr[$action]['message'] ?? 'Action successfully saved';
+                    return redirect()->back()->with(['status' => 1, 'message' => $message]);
                 }else{
                     //return redirect()->back()->with(['status' => 0, 'message' => 'So']);
                     //return null;

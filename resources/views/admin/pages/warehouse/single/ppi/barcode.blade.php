@@ -312,7 +312,8 @@
                                         @elseif ($ppiLastStatusCode == 'ppi_agreed_no_dispute' || $ppiLastStatusCode == 'ppi_existing_product_added_to_stock')
                                             <div style="font-size: 11px;">
                                                 <input id="agreeNoExisting" type="checkbox" style="height: 12px;"/>
-                                                <label for="agreeNoExisting">I agree that there are no existing.</label>
+                                                <label for="agreeNoExisting">I agree that there are no existing.</label><br/>
+                                                <small>আপনার কাজ কমাতে এখানে শুরুতে সেভ বাটন একটিভ আকারে দেয়া হয়েছে।</small>
                                             </div>
                                             <div id="btnWrapperEx" class="d-inline-block">
 
@@ -321,11 +322,11 @@
                                             @if(auth()->user()->hasRoutePermission('ppi_dispute_by_wh_manager_action'))
                                                 <div style="font-size: 11px;">
                                                     <input id="agreeallok" type="checkbox" style="height: 12px;"/>
-                                                    <label for="agreeallok">I agree that there are no dispute.</label>
+                                                    <label for="agreeallok">I agree that there are no dispute.</label><br/>
+                                                    <small>আপনার কাজ কমাতে এখানে শুরুতে সেভ বাটন একটিভ আকারে দেয়া হয়েছে, Dispute দিতে দয়া করে নীল কালারের বাটন আনচেক করুন।</small>
                                                 </div>
 
                                                 <div id="btnWrapper" class="d-inline-block">
-
                                                 </div>
                                             @endif
                                         @endif
@@ -506,12 +507,27 @@
                             $('#btnWrapper').empty().html(dispute);
                         }
 
-                        disputeBtnLoaded();
+                        // INITIAL STATE — auto-check and show SAVE
+                        if ($('input#agreeallok').length) {
+                            $('input#agreeallok').prop('checked', true);
+                            $('#btnWrapper').empty().html(iAgreeThereAreNoDispute);
+                        } else {
+                            disputeBtnLoaded(); // fallback if checkbox isn't in DOM
+                        }
+
 
                         $('#disputeBtnModalBody').empty().html($('script#disputeForm').html());
 
 
                         /** I agree There are no Existing Input Box Action*/
+                        
+                        // INITIAL STATE for "I agree there are no existing"
+                        if ($('input#agreeNoExisting').length) {
+                            $('input#agreeNoExisting').prop('checked', true);
+                            $('#btnWrapperEx').empty().html(iAgreeThereAreNoExisting);
+                        }
+
+                        
                         $(document).on('click', 'input#agreeNoExisting', function () {
                             let chekedIn = $(this).prop('checked');
                             if (chekedIn) {
@@ -519,7 +535,8 @@
                             } else {
                                 $('#btnWrapperEx').empty()
                             }
-                        })
+                        });
+
 
 
                         //print Barcode and Stock In Action

@@ -22,6 +22,13 @@ class Product extends Model
     public function category(){
         return $this->hasOne('\App\Models\ProductCategory', 'id', 'category_id');
     }
+    
+    public function unit()
+    {
+        return $this->belongsTo('App\Models\AttributeValue', 'unit_id', 'id');
+        // 'unit_id' is the foreign key in products table
+        // 'id' is the primary key in attribute_values table
+    }
 
     /**
      * thisWarehouseProduct

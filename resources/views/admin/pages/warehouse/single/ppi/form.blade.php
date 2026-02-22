@@ -136,17 +136,32 @@
                         </div>
 
                     </div>
+                    @php
+                        $users = $Model('User')::get();
+                    @endphp
                     <div class="row">
                         <div class="col-md-2">
                             <div class="form-group d-block">
-                                <label for="tran_type">Requested By</label>
-                                <input type="text" class="form-control" name="requested_by"
-                                           value="{{$ppi->requested_by??NULL}}" {{$disabled}}>
+                                <label for="requested_by">Requested By</label>
+                                <select name="requested_by" id="requested_by" class="form-select" required {{$disabled}}>
+                                    <option value="" selected>Select</option>
+                                    @foreach($users as $user)
+                                        <option value="{{$user->name??NULL}}"
+                                            {{!empty($ppi) && $ppi->requested_by === $user->name ? 'selected' : ''}}
+                                        >{{$user->name??NULL}}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <!--<input type="text" class="form-control" name=""-->
+                                <!--           value="{{$ppi->requested_by??NULL}}" {{$disabled}}>-->
                             </div>
                         </div>
+                        
+                        
+                        
                         <div class="col-md-2">
                             <div class="form-group d-block">
-                                <label for="tran_type">Received By</label>
+                                <label for="received_by">Received By</label>
                                 <input type="text" class="form-control" name="received_by"
                                            value="{{$ppi->received_by??NULL}}" {{$disabled}}>
                             </div>
@@ -281,20 +296,20 @@
                     </div> <!-- ENd product Modal Row -->
 
                     <!-- PPi Product Step Information -->
-                @php
-                    global $setProductValidationComplete;
-                        $setProductValidationComplete = 0;
-                    global $setProductValidationTotal;
-                        $setProductValidationTotal = 0;
-                    global $setProductValidationDone;
-                        $setProductValidationDone = false;
-                    global $singleProductValidationComplete;
-                        $singleProductValidationComplete = 0;
-                    global $singleProductValidationTotal;
-                        $singleProductValidationTotal = 0;
-                    global $singleProductValidationDone;
-                        $singleProductValidationDone = false;
-                @endphp
+                    @php
+                        global $setProductValidationComplete;
+                            $setProductValidationComplete = 0;
+                        global $setProductValidationTotal;
+                            $setProductValidationTotal = 0;
+                        global $setProductValidationDone;
+                            $setProductValidationDone = false;
+                        global $singleProductValidationComplete;
+                            $singleProductValidationComplete = 0;
+                        global $singleProductValidationTotal;
+                            $singleProductValidationTotal = 0;
+                        global $singleProductValidationDone;
+                            $singleProductValidationDone = false;
+                    @endphp
                 <!-- Product Information -->
                     @include('admin.pages.warehouse.single.ppi.ppi-product')
                 <!-- End Product Information -->

@@ -128,11 +128,14 @@ Route::group(['prefix'=> '{wh_code?}','namespace' => 'Warehouse', 'show_for' => 
     /** PPI Action */
     Route::group(['key' => 'PPI Action', 'prefix' => '/ppi', 'as' => ''], function(){
          $ppiAction = \App\Helpers\Warehouse\PpiSpiHelper::ppiStatusHandler();
+         
+         //dd($ppiAction);
          foreach($ppiAction as $key => $data){
+            //dd($key);
             if($data['is_route'] == true){
                 if($data['route_upload'] == true){
                     Route::any('/action/{ppi_id}/{action}/'.$key, ['uses' => 'PpiSpiStatusController@getPpiActionStatus', 'title' => $data['route_title']])->name($key.'_action');
-                }else{
+                } else {
                     Route::any('/action/{ppi_id}/{action}/'.$key, ['uses' => 'PpiSpiStatusController@getPpiActionStatus'])->name($key.'_action');
                 }
             }

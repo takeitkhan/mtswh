@@ -3,10 +3,182 @@
 namespace App\Http\Controllers\Warehouse\Pdfs;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;   // <-- Required for DB::transaction
 use Mpdf\Mpdf;
+use App\Services\PdfService;
+use App\Models\PpiSpi;
+use App\Helpers\Warehouse\PpiSpiHelper;
+use App\Models\PpiSpiStatus;
+use App\Models\PpiSpiDispute;
+use App\Models\GlobalSettings;
+use App\Models\Warehouse;
+use App\Models\PpiSpiSource;
 
-class PdfDemoController extends Controller
+
+
+class PpiSpiPdfController extends Controller
 {
+    
+    protected $model;
+    protected $ppiSpiStatusController;
+
+    public function __construct()
+    {
+        $this->model = new PpiSpi();
+    }
+    
+    
+    /**
+     * Mark challan as printed in the database
+     * (We keep warehouse_code and status for clarity / future use)
+     */
+    private function markChallanPrinted(string $warehouse_code, int $ppi_id, string $status)
+    {
+        $warehouse_id = Warehouse::where('code', $warehouse_code)
+                                            ->firstOrFail()
+                                            ->id;
+        
+        return PpiSpiStatus::updateOrCreate(
+            [
+                'ppi_spi_id'   => $ppi_id,
+                'warehouse_id' => $warehouse_id,
+                'status_for'   => 'Ppi',
+                'message'      => 'PPI Delivery Challan has been downloaded!',
+                'status_order' => 12,
+                'status_format'=> 'Optional',
+                'status_type' => 'success',
+                'ppi_spi_product_id' => null,
+                'code'         => 'ppi_challan_pdf_printed'
+            ],
+            [
+                'status_value'         => 1,
+                'action_performed_by'  => auth()->id(),
+            ]
+        );
+    }
+
+    /**
+     * Generate PDF content for a given PPI
+     * Keep warehouse_code and status in signature for parity with routes,
+     * but only ppi_id is required to load data.
+     */
+    private function makeChallanPdf(string $warehouse_code, int $ppi_id, string $status = '')
+    {
+        // Ensure PPI exists
+        $ppi = PpiSpi::with(['ppi_products.productInfo.unit'])->findOrFail($ppi_id);
+        $ppiActionPerformedBy = PpiSpiStatus::where('ppi_spi_id', $ppi_id)
+                                ->where('status_for', 'Ppi')
+                                ->where('code', 'ppi_new_product_added_to_stock')
+                                ->orderBy('id', 'desc')->first();
+        $products = $ppi->ppi_products;
+
+        // Safe access to performedBy
+        $performedBy = $ppiActionPerformedBy ? $ppiActionPerformedBy->performedBy : null;
+        
+        $sources = PpiSpiSource::where('ppi_spi_id', $ppi_id)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        // Ensure tempDir exists & writable
+        $tempDir = storage_path('app/mpdf_temp');
+        if (!is_dir($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        $mpdf = new Mpdf([
+            'format'       => 'A4',
+            'margin_top'   => 25,
+            'margin_bottom'=> 25,
+            'margin_header'=> 10,
+            'margin_footer'=> 10,
+            'tempDir'      => $tempDir,
+        ]);
+
+        $logoPath          = public_path('assets/images/logo.jpg');
+        $locationLogoPath  = public_path('assets/images/pin.png');
+        $footerLogoPath    = public_path('assets/images/footer_logo.jpg');
+        $telephoneLogoPath = public_path('assets/images/smartphone.png');
+        $globeLogoPath     = public_path('assets/images/globe.png');
+        $maxRows           = 22;
+
+        // === HEADER ===
+        $headerHtml = view('pdf.challan-header', compact('ppi', 'logoPath'))->render();
+        $mpdf->SetHTMLHeader($headerHtml);
+
+        // === FOOTER ===
+        $footerHtml = view('pdf.challan-footer', compact('footerLogoPath', 'locationLogoPath', 'telephoneLogoPath', 'globeLogoPath'))->render();
+        $mpdf->SetHTMLFooter($footerHtml);
+
+        $html = view('pdf.challan', compact(
+            'ppi', 'products', 'logoPath', 'footerLogoPath', 'locationLogoPath',
+            'telephoneLogoPath', 'globeLogoPath', 'maxRows', 'performedBy', 'sources'
+        ))->render();
+
+        $mpdf->WriteHTML($html);
+
+        // Return PDF bytes/string
+        return $mpdf->Output('', 'S');
+    }
+
+    /**
+     * View PDF in Browser (INLINE)
+     * Route: GET /ppi/{warehouse_code}/{ppi_id}/{status?}/challan/view
+     */
+    public function viewChallanPdf(Request $request, string $warehouse_code, int $ppi_id, string $status = '')
+    {
+        try {
+            $pdfContent = $this->makeChallanPdf($warehouse_code, $ppi_id, $status);
+            
+            return response($pdfContent, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="ppi_challan_' . $ppi_id . '.pdf"'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Public GET route: just view/download the challan PDF
+     * (Does not modify DB)
+     * Route: GET /ppi/{warehouse_code}/{ppi_id}/{status?}/challan/pdf
+     */
+    public function generateChallanPdf(Request $request, string $warehouse_code, int $ppi_id, string $status = '')
+    {
+        try {
+            $pdfContent = $this->makeChallanPdf($warehouse_code, $ppi_id, $status);
+            $filename = "ppi_challan_{$ppi_id}_{$warehouse_code}.pdf";
+    
+            return response()->streamDownload(function() use ($pdfContent) {
+                echo $pdfContent;
+            }, $filename, ['Content-Type' => 'application/pdf']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+
+    /**
+     * Public POST route: mark status and generate PDF (server-side)
+     * Route: POST /ppi/{warehouse_code}/{ppi_id}/{status}/challan-pdf
+     *
+     * This expects a POST (use a form submission to call it if you want to open in new tab)
+     */
+    public function ppiChallanPdfPrintedAction(Request $request, string $warehouse_code, int $ppi_id, string $status)
+    {
+        try {
+            DB::transaction(function () use ($warehouse_code, $ppi_id, $status) {
+                $this->markChallanPrinted($warehouse_code, $ppi_id, $status);
+            });
+    
+            return response()->json(['success' => true]);
+        } 
+        catch (\Exception $e) {
+            return response()->json(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+    }
+
     public function generate()
     {
         try {

@@ -32,6 +32,19 @@ class PpiProduct extends Model
     public function statuses(){
         return $this->hasMany('\App\Models\PpiSpiStatus','ppi_spi_product_id', 'id');
     }
+    
+    // Optional helper to directly get unit via productInfo
+    public function unit()
+    {
+        return $this->hasOneThrough(
+            AttributeValue::class, // final table
+            Product::class,        // intermediate table
+            'id',                  // Product table primary key
+            'id',                  // AttributeValue primary key
+            'product_id',          // local key on PpiProduct
+            'unit_id'              // foreign key on Product pointing to AttributeValue
+        );
+    }
 
     /**
      * productInfo

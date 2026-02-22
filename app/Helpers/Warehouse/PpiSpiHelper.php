@@ -231,6 +231,15 @@ class PpiSpiHelper
                 'route_title' => 'A New Product has been added to stock',
                 'route_upload' => false,
             ],
+            'ppi_challan_pdf_printed' => [
+                'key' => 'ppi_challan_pdf_printed',
+                'message' => 'Challan PDF printed',
+                'status_type' => 'success',
+                'status_format' => 'Optional',
+                'is_route' => true,
+                'route_title' => 'Challan PDF printed',
+                'route_upload' => false,
+            ],
             /*
             'ppi_all_product_added_to_stock' => [
                 'key' => 'ppi_all_product_added_to_stock',

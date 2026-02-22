@@ -1,19 +1,42 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Warehouse\Pdfs\PdfDemoController;
+use App\Http\Controllers\Warehouse\Pdfs\PpiSpiPdfController;
 
-Route::group([
-    'key' => 'Warehouse',
-    'prefix' => 'warehouse/{wh_code}/pdfs',
-    'as' => 'warehouse_pdfs_',
-    'middleware' => 'warehouse'
-], function () {
+// Route::group([
+//     'key' => 'Warehouse',
+//     'prefix' => 'warehouse/{wh_code}/pdfs',
+//     'as' => 'warehouse_pdfs_',
+//     'middleware' => 'warehouse'
+// ], function () {
+//     Route::get('/demo', [
+//         'uses' => 'App\Http\Controllers\Warehouse\Pdfs\PdfController@generate',
+//         'title' => 'PDF Demo',
+//         'show' => 'No',
+//         'position' => 'Top'
+//     ])->name('demo');
+// });
 
-    Route::get('/demo', [
-        'uses' => 'App\Http\Controllers\Warehouse\Pdfs\PdfDemoController@generate',
-        'title' => 'PDF Demo',
-        'show' => 'Yes',
-        'position' => 'Top'
-    ])->name('demo');
-});
+
+//Route::post('/ppi/{warehouse_code}/{ppi_id}/{status}/challan-pdf', [PpiSpiPdfController::class, 'ppiChallanPdfPrintedAction'])->name('ppi_challan_pdf_printed_action');
+
+// Route::post('/ppi/{warehouse_code}/{ppi_id}/{status}/challan/printed', [PpiSpiPdfController::class, 'markChallanPrinted']);
+// Route::get('/ppi/{warehouse_code}/{ppi_id}/{status}/challan/pdf', [PpiSpiPdfController::class, 'generateChallanPdf']);
+
+// Route::post('/ppi/{warehouse_code}/{ppi_id}/{status}/challan-pdf', [PpiSpiPdfController::class, 'ppiChallanPdfPrintedAction'])->name('ppi_challan_pdf_printed_now');
+
+
+// View PDF in Browser (INLINE)
+Route::get('/ppi/{warehouse_code}/{ppi_id}/{status?}/challan/view', [PpiSpiPdfController::class, 'viewChallanPdf'])
+    ->name('ppi_challan_pdf_preview');
+
+// View PDF with /edit/ in URL (alternative route)
+Route::get('/ppi/{warehouse_code}/{ppi_id}/edit/challan/view', [PpiSpiPdfController::class, 'viewChallanPdf'])
+    ->name('ppi_challan_pdf_preview_edit');
+
+// Download PDF
+Route::get('/ppi/{warehouse_code}/{ppi_id}/{status?}/challan/pdf', [PpiSpiPdfController::class, 'generateChallanPdf'])
+    ->name('ppi_challan_pdf_view');
+
+Route::post('/ppi/{warehouse_code}/{ppi_id}/{status}/challan-pdf', [PpiSpiPdfController::class, 'ppiChallanPdfPrintedAction'])
+    ->name('ppi_challan_pdf_printed_now');
