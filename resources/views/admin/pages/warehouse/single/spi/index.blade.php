@@ -41,6 +41,7 @@
             {"title": "To root",  "data": "root_source"},
             {"title": "Action Performed By", "data": "action_performed_by"},
             {"title": "Created At", "data": "created_at"},
+            {"title": "Delivery Challan", "data": "pdf"},
         ];
         loadDatatable("#product", "{{ route('spi_api_get', $wh_code) }}", arr);
 
