@@ -350,4 +350,123 @@ class PpiSpiPdfController extends Controller
             return $e->getMessage();
         }
     }
+
+    // ============================================
+    // SPI DELIVERY CHALLAN PDF METHODS
+    // ============================================
+
+    /**
+     * Mark delivery challan as generated in database
+     */
+    private function markDeliveryChallanGenerated(string $warehouse_code, int $spi_id, string $status)
+    {
+        $warehouse_id = Warehouse::where('code', $warehouse_code)
+                                            ->firstOrFail()
+                                            ->id;
+        
+        return PpiSpiStatus::create([
+            'ppi_spi_id'   => $spi_id,
+            'warehouse_id' => $warehouse_id,
+            'status_for'   => 'Spi',
+            'code'         => 'spi_delivery_challan_generated',
+            'message'      => 'SPI Delivery Challan has been generated',
+            'status_order' => 14,
+            'status_format'=> 'Main',
+            'status_type' => 'success',
+            'action_performed_by' => auth()->id(),
+        ]);
+    }
+
+    /**
+     * View Delivery Challan PDF in Browser (INLINE)
+     * Route: GET /spi/{warehouse_code}/{spi_id}/{status?}/challan/view
+     */
+    public function viewDeliveryChallanPdf(Request $request, string $warehouse_code, int $spi_id, string $status = '')
+    {
+        try {
+            $pdfContent = $this->makeDeliveryChallanPdf($warehouse_code, $spi_id, $status);
+            
+            return response($pdfContent, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="spi_delivery_challan_' . $spi_id . '.pdf"'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Download Delivery Challan PDF
+     * Route: GET /spi/{warehouse_code}/{spi_id}/{status?}/challan/pdf
+     */
+    public function generateDeliveryChallanPdf(Request $request, string $warehouse_code, int $spi_id, string $status = '')
+    {
+        try {
+            $pdfContent = $this->makeDeliveryChallanPdf($warehouse_code, $spi_id, $status);
+            $filename = "spi_delivery_challan_{$spi_id}_{$warehouse_code}.pdf";
+    
+            return response()->streamDownload(function() use ($pdfContent) {
+                echo $pdfContent;
+            }, $filename, ['Content-Type' => 'application/pdf']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Mark Delivery Challan as Generated
+     * Route: POST /spi/{warehouse_code}/{spi_id}/{status}/challan-pdf
+     */
+    public function spiChallanPdfGeneratedAction(Request $request, string $warehouse_code, int $spi_id, string $status)
+    {
+        try {
+            DB::transaction(function () use ($warehouse_code, $spi_id, $status) {
+                $this->markDeliveryChallanGenerated($warehouse_code, $spi_id, $status);
+            });
+    
+            return response()->json(['success' => true]);
+        } 
+        catch (\Exception $e) {
+            return response()->json(['error' => true, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Make SPI Delivery Challan PDF
+     * (Similar to PPI challan but for SPI)
+     */
+    private function makeDeliveryChallanPdf(string $warehouse_code, int $spi_id, string $status = '')
+    {
+        try {
+            $spi = PpiSpi::where('id', $spi_id)
+                            ->where('action_format', 'Spi')
+                            ->with('spiProducts')
+                            ->firstOrFail();
+
+            $warehouse = Warehouse::where('code', $warehouse_code)->firstOrFail();
+
+            $mpdf = new Mpdf([
+                'format' => 'A4',
+                'margin_top' => 20,
+                'margin_bottom' => 20,
+                'margin_left' => 15,
+                'margin_right' => 15,
+            ]);
+
+            // HTML for Delivery Challan
+            $html = view('pdf.delivery-challan', [
+                'spi' => $spi,
+                'warehouse' => $warehouse,
+                'status' => $status
+            ])->render();
+
+            $mpdf->WriteHTML($html);
+            
+            return $mpdf->Output('', 'S');
+
+        } catch (\Exception $e) {
+            throw $e;
+        }
+    }
 }
+

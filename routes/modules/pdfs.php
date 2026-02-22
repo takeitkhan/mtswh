@@ -40,3 +40,23 @@ Route::get('/ppi/{warehouse_code}/{ppi_id}/{status?}/challan/pdf', [PpiSpiPdfCon
 
 Route::post('/ppi/{warehouse_code}/{ppi_id}/{status}/challan-pdf', [PpiSpiPdfController::class, 'ppiChallanPdfPrintedAction'])
     ->name('ppi_challan_pdf_printed_now');
+
+// ============================================
+// SPI DELIVERY CHALLAN PDF ROUTES
+// ============================================
+
+// View PDF in Browser (INLINE)
+Route::get('/spi/{warehouse_code}/{spi_id}/{status?}/challan/view', [PpiSpiPdfController::class, 'viewDeliveryChallanPdf'])
+    ->name('spi_delivery_challan_preview');
+
+// View PDF with /edit/ in URL (alternative route)
+Route::get('/spi/{warehouse_code}/{spi_id}/edit/challan/view', [PpiSpiPdfController::class, 'viewDeliveryChallanPdf'])
+    ->name('spi_delivery_challan_preview_edit');
+
+// Download PDF
+Route::get('/spi/{warehouse_code}/{spi_id}/{status?}/challan/pdf', [PpiSpiPdfController::class, 'generateDeliveryChallanPdf'])
+    ->name('spi_delivery_challan_view');
+
+// Mark as Generated
+Route::post('/spi/{warehouse_code}/{spi_id}/{status}/challan-pdf', [PpiSpiPdfController::class, 'spiChallanPdfGeneratedAction'])
+    ->name('spi_delivery_challan_generated_now');
