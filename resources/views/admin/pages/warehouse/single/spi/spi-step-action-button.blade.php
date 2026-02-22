@@ -115,6 +115,9 @@
                     $Component::confirmModal('ppiActionModal', 'form#ppi_action_form', 'Are you sure?', '', '')
                 !!}
 
+            @endif
+        @endisset
+
     </form>
 </div>
 
