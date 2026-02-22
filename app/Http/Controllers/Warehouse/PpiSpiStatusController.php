@@ -330,6 +330,24 @@ class PpiSpiStatusController extends SingleWarehouseController
         $redirect = $merge_arr['redirect'];
         $statusArr = PpiSpiHelper::spiStatusHandler();
         $status = array_search($action, array_keys($statusArr), true) ?? null;
+        
+        // Check if this status already exists for this SPI (prevent duplicates)
+        $statusCode = $statusArr[$action]['key'] ?? null;
+        if ($statusCode && $statusCode === 'spi_all_steps_complete') {
+            $existingStatus = PpiSpiStatus::where('ppi_spi_id', $merge_arr['spi_id'])
+                ->where('code', 'spi_all_steps_complete')
+                ->first();
+            
+            if ($existingStatus) {
+                // Status already exists, don't create duplicate
+                if ($redirect) {
+                    $message = $statusArr[$action]['message'] ?? 'Action successfully saved';
+                    return redirect()->back()->with(['status' => 1, 'message' => $message]);
+                }
+                return $existingStatus;
+            }
+        }
+        
         $dbStatus = PpiSpiStatus::where('ppi_spi_id', $merge_arr['spi_id'])->orderBy('id', 'desc')->first();
         $number = $dbStatus->status_order ?? 0;
         //dd($status);

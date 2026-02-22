@@ -457,13 +457,22 @@ class PpiSpiHelper
                 'route_title' => 'SPI transfer successfully',
                 'route_upload' => false,
             ],
+            'spi_delivery_challan_generated' => [
+                'key' => 'spi_delivery_challan_generated',
+                'message' => 'SPI Delivery Challan has been generated',
+                'status_type' => 'success',
+                'status_format' => 'Main',
+                'is_route' => true,
+                'route_title' => 'Generate Delivery Challan',
+                'route_upload' => false,
+            ],
             'spi_all_steps_complete' => [
                 'key' => 'spi_all_steps_complete',
                 'message' => 'SPI successfully completed',
                 'status_type' => 'success-complete',
                 'status_format' => 'Main',
                 'is_route' => true,
-                'route_title' => 'SPI successfully completed',
+                'route_title' => 'Close this SPI',
                 'route_upload' => false,
             ],
         ];

@@ -195,7 +195,7 @@ class PpiSpiStatus extends Model
         if(!empty($merge['code'])){
             $status = $status->where('code', $merge['code']);
         }
-        $status = $status->orderBy('status_order', 'desc')
+        $status = $status->orderBy('id', 'desc')
             ->first();
         if(!empty($status)){
             return $status;
