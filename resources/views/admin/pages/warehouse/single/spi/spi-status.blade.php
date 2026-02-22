@@ -11,12 +11,13 @@
                 <div>
                     <strong><i class="fa fa-check-circle me-2"></i>SPI Closed</strong>
                     <p class="mb-1 small">This SPI is closed. You can view the delivery challan anytime.</p>
+                    <a href="{{ route('spi_delivery_challan_preview', [\Request::get('warehouse_code'), $spi_id, 'spi_all_steps_complete']) }}" 
+                    target="_blank" 
+                    class="btn btn-sm btn-success">
+                        <i class="fa fa-file-pdf me-1"></i>View PDF
+                    </a>
                 </div>
-                <a href="{{ route('spi_delivery_challan_preview', [\Request::get('warehouse_code'), $spi_id, 'spi_all_steps_complete']) }}" 
-                   target="_blank" 
-                   class="btn btn-sm btn-success">
-                    <i class="fa fa-file-pdf me-1"></i>View PDF
-                </a>
+                
             </div>
         </div>
     @endif

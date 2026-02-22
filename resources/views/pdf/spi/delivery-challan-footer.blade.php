@@ -1,29 +1,19 @@
-<div style="margin-bottom: 20px;">
-    @if(isset($footerLogoPath) && file_exists($footerLogoPath))
-        <div style="text-align: center; margin-bottom: 10px;">
-            <img src="{{ $footerLogoPath }}" alt="Footer Logo" style="height: 40px;">
-        </div>
-    @endif
-    
-    <table style="width:100%; border-collapse: collapse;">
+<div style="width: 100%; text-align: left; border-top: 1px solid #ccc; padding-top: 8px; font-size: 9px; color: #666;">
+    <table style="width: 100%; border-collapse: collapse;">
         <tr>
-            <td style="width:33%; text-align: center; padding: 5px;">
-                @if(isset($locationLogoPath))
-                    <img src="{{ $locationLogoPath }}" alt="Location" style="width: 10px; height: 10px; margin-right: 3px;">
-                @endif
-                Address Info
+            <td style="width: 20%; vertical-align: top;">
+                <img src="{{ $footerLogoPath ?? '' }}" style="height: 40px;" />
             </td>
-            <td style="width:34%; text-align: center; padding: 5px;">
-                @if(isset($telephoneLogoPath))
-                    <img src="{{ $telephoneLogoPath }}" alt="Phone" style="width: 10px; height: 10px; margin-right: 3px;">
-                @endif
-                +880-000-000000
+            <td style="width: 50%; vertical-align: top; padding-top: 5px;">
+                <img src="{{ $locationLogoPath ?? '' }}" style="width: 8px; height: 8px; vertical-align: middle;" />
+                Plot # Cha-2, Uttar Badda, Gulshan, Dhaka - 1212<br/>
+                <img src="{{ $telephoneLogoPath ?? '' }}" style="width: 8px; height: 8px; vertical-align: middle;" />
+                +8801721767693 &nbsp;|&nbsp; info@mtsbd.net, anowar@mtsbd.net<br/>
+                <img src="{{ $globeLogoPath ?? '' }}" style="width: 8px; height: 8px; vertical-align: middle;" />
+                www.mtsbd.net
             </td>
-            <td style="width:33%; text-align: center; padding: 5px;">
-                @if(isset($globeLogoPath))
-                    <img src="{{ $globeLogoPath }}" alt="Web" style="width: 10px; height: 10px; margin-right: 3px;">
-                @endif
-                www.website.com
+            <td style="width: 30%; text-align: right; vertical-align: top; padding-top: 10px;">
+                Page {PAGENO} of {nbpg}
             </td>
         </tr>
     </table>
