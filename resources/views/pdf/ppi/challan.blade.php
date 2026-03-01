@@ -104,15 +104,12 @@
         <tr>
             <td style="width:70%; vertical-align: top; border-top: 1px solid #000; padding-top:10px;">
                 <strong>Delivered By</strong><br/>
+
+                <br/>
+                <br/>
+                <br/>
+                <br/>
                 {{ $performedBy->name ?? '' }}<br/>
-                <br/>
-                <br/>
-                <br/>
-                <br/>
-                <br/>
-                <br/>
-                <br/>
-                <br/>
                 <!-- {{ $ppi->requester_contact ?? '' }}<br/>
                 {{ $ppi->requester_company ?? '' }}<br/>
                 {{ $ppi->requester_id ?? '' }}<br/>
@@ -120,6 +117,11 @@
             </td>
             <td style="width:30%; vertical-align: top; border-top: 1px solid #000; padding-top:10px;">
                 <strong>Received By</strong><br/>
+
+                <br/>
+                <br/>
+                <br/>
+                <br/>
                 {{ $ppi->received_by }}<br/>
                 <!-- {{ $ppi->receiver_contact ?? '' }}<br/>
                 {{ $ppi->receiver_company ?? '' }}<br/>

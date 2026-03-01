@@ -6,12 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;   // <-- Required for DB::transaction
 use Mpdf\Mpdf;
-use App\Services\PdfService;
 use App\Models\PpiSpi;
-use App\Helpers\Warehouse\PpiSpiHelper;
 use App\Models\PpiSpiStatus;
-use App\Models\PpiSpiDispute;
-use App\Models\GlobalSettings;
 use App\Models\Warehouse;
 use App\Models\PpiSpiSource;
 
@@ -103,14 +99,14 @@ class PpiSpiPdfController extends Controller
         $maxRows           = 22;
 
         // === HEADER ===
-        $headerHtml = view('pdf.challan-header', compact('ppi', 'logoPath'))->render();
+        $headerHtml = view('pdf.ppi.challan-header', compact('ppi', 'logoPath'))->render();
         $mpdf->SetHTMLHeader($headerHtml);
 
         // === FOOTER ===
-        $footerHtml = view('pdf.challan-footer', compact('footerLogoPath', 'locationLogoPath', 'telephoneLogoPath', 'globeLogoPath'))->render();
+        $footerHtml = view('pdf.ppi.challan-footer', compact('footerLogoPath', 'locationLogoPath', 'telephoneLogoPath', 'globeLogoPath'))->render();
         $mpdf->SetHTMLFooter($footerHtml);
 
-        $html = view('pdf.challan', compact(
+        $html = view('pdf.ppi.challan', compact(
             'ppi', 'products', 'logoPath', 'footerLogoPath', 'locationLogoPath',
             'telephoneLogoPath', 'globeLogoPath', 'maxRows', 'performedBy', 'sources'
         ))->render();
@@ -448,8 +444,6 @@ class PpiSpiPdfController extends Controller
                             ->with(['spiProducts.productInfo.unit'])
                             ->firstOrFail();
 
-            $warehouse = Warehouse::where('code', $warehouse_code)->firstOrFail();
-
             // Get warehouse manager info
             $spiActionPerformedBy = PpiSpiStatus::where('ppi_spi_id', $spi_id)
                                 ->where('status_for', 'Spi')
@@ -478,9 +472,10 @@ class PpiSpiPdfController extends Controller
             $footerLogoPath    = public_path('assets/images/footer_logo.jpg');
             $telephoneLogoPath = public_path('assets/images/smartphone.png');
             $globeLogoPath     = public_path('assets/images/globe.png');
+            $maxRows           = 21;
 
             // === HEADER ===
-            $headerHtml = view('pdf.spi.delivery-challan-header', compact('spi', 'warehouse', 'logoPath'))->render();
+            $headerHtml = view('pdf.spi.delivery-challan-header', compact('spi', 'logoPath'))->render();
             $mpdf->SetHTMLHeader($headerHtml);
 
             // === FOOTER ===
@@ -489,8 +484,8 @@ class PpiSpiPdfController extends Controller
 
             // === BODY ===
             $html = view('pdf.spi.delivery-challan-body', compact(
-                'spi', 'warehouse', 'logoPath', 'footerLogoPath', 'locationLogoPath',
-                'telephoneLogoPath', 'globeLogoPath', 'performedBy'
+                'spi', 'logoPath', 'footerLogoPath', 'locationLogoPath',
+                'telephoneLogoPath', 'globeLogoPath', 'performedBy', 'maxRows'
             ))->render();
 
             $mpdf->WriteHTML($html);

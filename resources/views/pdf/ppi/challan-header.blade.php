@@ -6,4 +6,3 @@
         PPI No: {{ $ppi->id ?? 'N/A' }} | Date: {{ $ppi->created_at->format('d/m/Y H:i') ?? 'N/A' }}
     </p>
 </div>
-
