@@ -1,6 +1,9 @@
 <div class="d-inline-block ms-2" id="ppi_action">
     <form action="" method="POST" id="ppi_action_form">
         @csrf
+        @php
+            $ppiComplete = $Model('PpiSpiStatus')::getPpiLastStatus($ppi->id)->code;
+        @endphp
         <!-- ====================================================
                # Subordinate Manager Section
                # PPI Sent To Boss
@@ -74,14 +77,14 @@
             ====================================-->
         @elseif($generalUser && auth()->user()->hasRoutePermission('ppi_dispute_by_wh_manager_action'))
             @php
-                if($singleProductValidationDone && $setProductValidationDone){
+                if($singleProductValidationDone && $setProductValidationDone && $ppiComplete != 'ppi_all_steps_complete'){
                     $ppiStatusFormAction =  route('ppi_all_steps_complete_action', [$warehouse_code, $ppi->id, 'ppi_all_steps_complete']);
-                    $ppiStatusFormBtnText = 'Close this PPI';
-                    $ppiStatusFormBtnClass = 'indigo';
+                    $ppiStatusFormBtnText = 'Print Challan';
+                    $ppiStatusFormBtnClass = 'success';
                     $ppiStatusFormBtnId = '';
                     $ppiStatusCode = '';
                     $doneThisAction =   false;
-                    $doneThisActionButton = true;
+                    $doneThisActionButton = false;
                 }else {
                     $doneThisAction =   true;
                     $doneThisActionButton = true;
@@ -90,13 +93,7 @@
         @endif
     
     
-        @php
-            $ppiComplete = $Model('PpiSpiStatus')::getPpiLastStatus($ppi->id)->code;
-            if($ppiComplete == 'ppi_all_steps_complete'){
-                $doneThisAction =  true;
-                $doneThisActionButton = true;
-            }
-        @endphp
+
 
         @php
             $globalUser =  auth()->user()->checkUserRoleTypeGlobal();
@@ -241,50 +238,6 @@
         });
         
     </script>
-    <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const btn = document.getElementById('printChallanBtn');
-    
-        if (btn) {
-            btn.addEventListener('click', function (e) {
-                e.preventDefault();
-    
-                let warehouse = this.dataset.warehouse;
-                let ppiId     = this.dataset.ppiId;
-                let status    = this.dataset.status;
-                
-                // Disable button to prevent double click
-                this.disabled = true;
-                this.classList.add('disabled');
-                
-                // 1. Open PDF in new tab (GET route)
-                window.open(`/ppi/${warehouse}/${ppiId}/${status}/challan/pdf`, "_blank");
-                
-                // 2. Mark status (POST route)
-                fetch(`/ppi/${warehouse}/${ppiId}/${status}/challan-pdf`, {
-                    method: "POST",
-                    headers: {
-                        "X-CSRF-TOKEN": "{{ csrf_token() }}",
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({})
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    this.disabled = false;
-                    this.classList.remove('disabled');
-                });
 
-            });
-        }
-    });
-
-    </script>
     
 @endsection
