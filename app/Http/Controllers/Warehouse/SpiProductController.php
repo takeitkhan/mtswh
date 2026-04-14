@@ -8,6 +8,8 @@ use App\Models\SpiProduct;
 use App\Models\PpiSpi;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use App\Models\TemporaryStock;
 /**
  * @Annotation
@@ -45,99 +47,222 @@ class SpiProductController extends SingleWarehouseController
 
     public function store(Request $request)
     {
-        //dd($request->all());
-        $products = $request->product;
-//        dd($products);
-        $busketInfo = $this->ppi_spi_history->arrangeSpiData($request->spi_id);
-        $saveForTemporaryStock = [];
-        foreach($products as $key => $product){
-            $attr =  [
-                'spi_id' => $request->spi_id,
-                'warehouse_id' => request()->get('warehouse_id'),
-                'from_warehouse' => $product['from_warehouse'],
-                'product_id' => $product['product_id'],
-                'ppi_product_id' => $product['ppi_product_id'],
-                'ppi_id' => $product['ppi_id'],
-                'bundle_id' => $product['bundle_id'] ?? null,
-                'qty' => $product['qty'],
-                'unit_price' => $product['unit_price'],
-//                'price' => $product['price'],
-                'price' => $product['qty']*$product['unit_price'],
-                'note' => $product['note'],
-                'action_performed_by' => auth()->user()->id,
-                'any_warning_cls' => null,
-            ];
-//            dd($attr);
-            $spi_product = $this->model::create($attr);
-
-            //Store data for temporary stock
-            $saveForTemporaryStock []= [
-                'action_format' => 'Spi',
-                'product_id' => $product['product_id'],
-                'ppi_spi_id' =>  $request->spi_id,
-                'ppi_product_id' => null,
-                'spi_product_id' => $spi_product->id,
-                'waiting_stock_in' => 0,
-                'waiting_stock_out' => $product['qty'] ?? 0,
-                'warehouse_id' => request()->get('warehouse_id'),
-                'created_at' => Carbon::now(),
-                'updated_at' => Carbon::now()
-            ];
-
-            $doStatus = $this->ppiSpiStatusController->spiActionStatus([
-                'wh_id' => request()->get('warehouse_id'),
-                'spi_id' => $request->spi_id,
-                'action' => 'spi_product_added',
-                'spi_product_id' => $spi_product->id,
-                'note' => 'Product: '.$this->Model('Product')::name($product['product_id']),
-                'redirect' => false,
-                'get_status_data' => true,
-            ]);
-
-            //check Land From Project
-            if(!empty($product['landed_project'] && $product['originalProject'] && $product['landed_project']  != $product['originalProject'])){
-                $ProjectLendedData = [
-                    'spi_id' =>  $request->spi_id,
-                    'spi_product_id' => $spi_product->id,
+        try {
+            //dd($request->all());
+            $products = $request->product;
+            
+            // Check if products is null or empty
+            if (!$products || !is_array($products)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No products provided'
+                ], 400);
+            }
+            
+    //        dd($products);
+            $busketInfo = $this->ppi_spi_history->arrangeSpiData($request->spi_id);
+            $saveForTemporaryStock = [];
+            foreach($products as $key => $product){
+                $attr =  [
+                    'spi_id' => $request->spi_id,
+                    'warehouse_id' => request()->get('warehouse_id'),
+                    'from_warehouse' => $product['from_warehouse'] ?? null,
                     'product_id' => $product['product_id'],
-                    'ppi_id' => $product['ppi_id'],
-                    'ppi_product_id' => $product['ppi_product_id'],
-                    'original_project' =>  $product['originalProject'],
-                    'original_project_id' =>  $this->Model('Project')::where('name', 'LIKE', '%'.$product['originalProject'].'%')->first()->id ?? null,
-                    'landed_project' =>  $product['landed_project'],
-                    'landed_project_id' =>  $this->Model('Project')::where('name', 'LIKE', '%'.$product['landed_project'].'%')->first()->id ?? null,
+                    'ppi_product_id' => $product['ppi_product_id'] ?? $product['ppi_id'] ?? null,
+                    'ppi_id' => $product['ppi_id'] ?? null,
+                    'bundle_id' => $product['bundle_id'] ?? null,
                     'qty' => $product['qty'],
-                    'status' => 'processing'
+                    'unit_price' => $product['unit_price'] ?? 0,
+    //                'price' => $product['price'],
+                    'price' => $product['qty']*($product['unit_price'] ?? 0),
+                    'note' => $product['note'] ?? $product['notes'] ?? null,
+                    'action_performed_by' => auth()->user()->id,
+                    'any_warning_cls' => null,
                 ];
-                $lendDataStore = $this->Model('SpiProductLoanFromProject')::create($ProjectLendedData);
-                if($lendDataStore) {
-                    $this->ppiSpiStatusController->spiActionStatus([
-                        'wh_id' => request()->get('warehouse_id'),
-                        'spi_id' => $request->spi_id,
-                        'action' => 'spi_product_lended_from_project',
+    //            dd($attr);
+                $spi_product = $this->model::create($attr);
+
+                //Store data for temporary stock
+                $saveForTemporaryStock []= [
+                    'action_format' => 'Spi',
+                    'product_id' => $product['product_id'],
+                    'ppi_spi_id' =>  $request->spi_id,
+                    'ppi_product_id' => null,
+                    'spi_product_id' => $spi_product->id,
+                    'waiting_stock_in' => 0,
+                    'waiting_stock_out' => $product['qty'] ?? 0,
+                    'warehouse_id' => request()->get('warehouse_id'),
+                    'created_at' => Carbon::now(),
+                    'updated_at' => Carbon::now()
+                ];
+
+                $doStatus = $this->ppiSpiStatusController->spiActionStatus([
+                    'wh_id' => request()->get('warehouse_id'),
+                    'spi_id' => $request->spi_id,
+                    'action' => 'spi_product_added',
+                    'spi_product_id' => $spi_product->id,
+                    'note' => 'Product: '.$this->Model('Product')::name($product['product_id']),
+                    'redirect' => false,
+                    'get_status_data' => true,
+                ]);
+
+                //check Land From Project - safely access optional fields
+                $landedProject = $product['landed_project'] ?? null;
+                $originalProject = $product['originalProject'] ?? null;
+                
+                if(!empty($landedProject) && !empty($originalProject) && $landedProject != $originalProject){
+                    $ProjectLendedData = [
+                        'spi_id' =>  $request->spi_id,
                         'spi_product_id' => $spi_product->id,
-                        'note' => 'Product: ' . $this->Model('Product')::name($product['product_id']) . ' lended from ' . $product['landed_project'] . ' Project.',
-                        'redirect' => false,
-                        'get_status_data' => false,
-                    ]);
+                        'product_id' => $product['product_id'],
+                        'ppi_id' => $product['ppi_id'],
+                        'ppi_product_id' => $product['ppi_product_id'],
+                        'original_project' =>  $product['originalProject'],
+                        'original_project_id' =>  $this->Model('Project')::where('name', 'LIKE', '%'.$product['originalProject'].'%')->first()->id ?? null,
+                        'landed_project' =>  $product['landed_project'],
+                        'landed_project_id' =>  $this->Model('Project')::where('name', 'LIKE', '%'.$product['landed_project'].'%')->first()->id ?? null,
+                        'qty' => $product['qty'],
+                        'status' => 'processing'
+                    ];
+                    $lendDataStore = $this->Model('SpiProductLoanFromProject')::create($ProjectLendedData);
+                    if($lendDataStore) {
+                        $this->ppiSpiStatusController->spiActionStatus([
+                            'wh_id' => request()->get('warehouse_id'),
+                            'spi_id' => $request->spi_id,
+                            'action' => 'spi_product_lended_from_project',
+                            'spi_product_id' => $spi_product->id,
+                            'note' => 'Product: ' . $this->Model('Product')::name($product['product_id']) . ' lended from ' . $product['landed_project'] . ' Project.',
+                            'redirect' => false,
+                            'get_status_data' => false,
+                        ]);
+                    }
                 }
+
+                // History Create
+                $newInfo = $this->ppi_spi_history->arrangeSpiData($request->spi_id);
+                $this->ppi_spi_history->createHistory([
+                    'ppi_spi_id' => $request->spi_id,
+                    'action_format' => 'Spi',
+                    'chunck_old_data' => $busketInfo,
+                    'chunck_new_data' => $newInfo,
+                    'status_id' => $doStatus->id ?? null,
+                ]);
+            }
+    //        dd($attr);
+            if (count($saveForTemporaryStock) > 0) {
+                TemporaryStock::insert($saveForTemporaryStock);
             }
 
-            // History Create
-            $status_id = $doStatus->id;
-            $newInfo = $this->ppi_spi_history->arrangeSpiData($request->spi_id);
-            $this->ppi_spi_history->createHistory([
-                'ppi_spi_id' => $request->spi_id,
-                'action_format' => 'Spi',
-                'chunck_old_data' => $busketInfo,
-                'chunck_new_data' => $newInfo,
-                'status_id' => $status_id,
-            ]);
-        }
-//        dd($attr);
-        TemporaryStock::insert($saveForTemporaryStock);
+            // Generate HTML for newly added products to return immediately
+            $spi = PpiSpi::findOrFail($request->spi_id);
+            $getSpiProduct = $spi->spiProducts()
+                ->with('product')
+                ->orderBy('created_at', 'desc')
+                ->get();
 
-        return redirect()->back()->with(['status' => 1, 'message' => 'Successfully product added']);
+            $wh_code = request()->get('warehouse_code');
+            
+            // Render table rows HTML
+            $html = '';
+            foreach ($getSpiProduct as $product) {
+                // Skip set products
+                $checkProductIsSet = $this->Model('PpiSetProduct')::getSet($product->id);
+                if(count($checkProductIsSet) > 0) continue;
+
+                $html .= '<tr class="pr_row_' . $product->id . '" data-product-id="' . $product->id . '">';
+                
+                // Edit & Delete Buttons
+                $html .= '<td>';
+                $html .= '<a title="Edit" class="edit text-info font-14" href="javascript:void(0)" data-product-id="' . $product->id . '">';
+                $html .= '<span class="fas fa-edit"></span>';
+                $html .= '</a>';
+                $html .= '&nbsp;';
+                $html .= '<a title="Delete" class="delete text-danger font-14" href="javascript:void(0)" data-product-id="' . $product->id . '">';
+                $html .= '<span class="fas fa-trash"></span>';
+                $html .= '</a>';
+                $html .= '</td>';
+                
+                // Correction column (empty)
+                $html .= '<td class="not_print"></td>';
+                
+                // Product Name
+                $html .= '<td class="product"><strong>' . ($product->product_name ?? 'N/A') . '</strong></td>';
+                
+                // QTY Input
+                $html .= '<td class="qty p-1">';
+                $html .= '<input type="number" class="form-control form-control-sm qty-input" value="' . $product->qty . '" min="1" data-old-value="' . $product->qty . '" data-product-id="' . $product->id . '">';
+                $html .= '</td>';
+                
+                // Unit
+                $html .= '<td class="unit">';
+                if($product->product_state == 'Cut-Piece') {
+                    $html .= 'Bundle';
+                } else {
+                    $unit = $this->Model('AttributeValue')::getValueById($product->product_unit_id);
+                    $html .= $unit ?? 'pcs';
+                }
+                $html .= '</td>';
+                
+                // Price Input
+                $html .= '<td class="price p-1 ppi_product_price_show">';
+                $html .= '<input type="number" class="form-control form-control-sm unit-price-input" value="' . $product->unit_price . '" step="0.01" min="0" data-old-value="' . $product->unit_price . '" data-product-id="' . $product->id . '">';
+                $html .= '</td>';
+                
+                // Product State
+                $productState = $this->Model('PpiProduct')::ppiProductInfoByPpiProductId($product->ppi_product_id, ['column' => 'product_state']);
+                $html .= '<td class="ppi-info-col">' . ($productState ?? '') . '</td>';
+                
+                // Health Status
+                $healthStatus = $this->Model('PpiProduct')::ppiProductInfoByPpiProductId($product->ppi_product_id, ['column' => 'health_status']);
+                $html .= '<td class="ppi-info-col">' . ($healthStatus ?? '') . '</td>';
+                
+                // Barcode Format
+                $html .= '<td class="not_print ppi-info-col">' . ($product->barcode_format ?? '') . '</td>';
+                
+                // Notes Input
+                $html .= '<td class="note p-1 not_print">';
+                $html .= '<input type="text" class="form-control form-control-sm notes-input" placeholder="Notes" value="' . ($product->note ?? '') . '" data-old-value="' . ($product->note ?? '') . '" data-product-id="' . $product->id . '">';
+                $html .= '</td>';
+                
+                // From Warehouse
+                $html .= '<td class="ppi-info-col">';
+                $html .= ($product->from_warehouse != $product->warehouse_id) ? 'Lended' : 'Regular';
+                $html .= '<br>From ' . $this->Model('Warehouse')::name($product->from_warehouse);
+                $html .= '</td>';
+                
+                // Dispute Note
+                $html .= '<td class="not_print"></td>';
+                
+                // Physical Validation
+                $html .= '<td class="text-center not_print"></td>';
+                
+                // Save Button
+                $html .= '<td class="not_print text-center">';
+                $html .= '<a title="Save" class="save text-success font-14" href="javascript:void(0)" data-product-id="' . $product->id . '" style="display: none;">';
+                $html .= '<span class="fas fa-save"></span>';
+                $html .= '</a>';
+                $html .= '</td>';
+                
+                $html .= '</tr>';
+            }
+
+            return response()->json([
+                'success' => true, 
+                'status' => 1, 
+                'message' => 'Successfully product added',
+                'html' => $html
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('SPI Product Store Error', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
 
@@ -163,117 +288,42 @@ class SpiProductController extends SingleWarehouseController
      * @return void
      */
     public function update(Request $request){
-//         dd($request->all());
-        $products = $request->product;
-        $busketInfo = $this->ppi_spi_history->arrangeSpiData($request->spi_id);
-//        dd($products);
-        foreach($products as $key => $product){
-            $attr =  [
-                'spi_id' => $request->spi_id,
-                'warehouse_id' => request()->get('warehouse_id'),
-                'from_warehouse' => $product['from_warehouse'],
-                'product_id' => $product['product_id'],
-                'ppi_product_id' => $product['ppi_product_id'],
-                'ppi_id' => $product['ppi_id'],
-                'bundle_id' => $product['bundle_id'] ?? null,
-                'qty' => $product['qty'],
-                'unit_price' => $product['unit_price'],
-//                'price' => $product['price'],
-                'price' => $product['qty']*$product['unit_price'],
-                'note' => $product['note'],
+        try {
+            // Handle AJAX request for single product update
+            $spi_product_id = $request->spi_product_id;
+            $qty = $request->qty;
+            $unit_price = $request->unit_price;
+            $notes = $request->notes ?? '';
+
+            // Find and update the product
+            $spiProduct = $this->model::findOrFail($spi_product_id);
+            
+            $spiProduct->update([
+                'qty' => $qty,
+                'unit_price' => $unit_price,
+                'price' => $qty * $unit_price,
+                'note' => $notes,
                 'action_performed_by' => auth()->user()->id,
-                'any_warning_cls' => null,
-            ];
-//            dd($attr);
-            $this->model::where('id', $request->spi_product_id)->update($attr);
-
-
-            //check Land From Project
-            $checklend = $this->Model('SpiProductLoanFromProject')::where('spi_id', $request->spi_id)->where('spi_product_id', $request->spi_product_id)->delete() ?? false;
-            if(!empty($product['landed_project'] && $product['originalProject'] && $product['landed_project']  != $product['originalProject'])){
-                $ProjectLendedData = [
-                    'spi_id' =>  $request->spi_id,
-                    'spi_product_id' =>  $request->spi_product_id,
-                    'product_id' => $product['product_id'],
-                    'ppi_id' => $product['ppi_id'],
-                    'ppi_product_id' => $product['ppi_product_id'],
-                    'original_project' =>  $product['originalProject'],
-                    'original_project_id' =>  $this->Model('Project')::where('name', 'LIKE', '%'.$product['originalProject'].'%')->first()->id ?? null,
-                    'landed_project' =>  $product['landed_project'],
-                    'landed_project_id' =>  $this->Model('Project')::where('name', 'LIKE', '%'.$product['landed_project'].'%')->first()->id ?? null,
-                    'qty' => $product['qty'],
-                    'status' => 'processing'
-                ];
-                $lendDataStore = $this->Model('SpiProductLoanFromProject')::create($ProjectLendedData);
-                if($lendDataStore) {
-                    $this->ppiSpiStatusController->spiActionStatus([
-                        'wh_id' => request()->get('warehouse_id'),
-                        'spi_id' => $request->spi_id,
-                        'action' => 'spi_product_lended_from_project',
-                        'spi_product_id' => $request->spi_product_id,
-                        'note' => 'Product: ' . $this->Model('Product')::name($product['product_id']) . ' lended from ' . $product['landed_project'] . ' Project.',
-                        'redirect' => false,
-                        'get_status_data' => false,
-                    ]);
-                }
-            }
-
-
-            //Update Temporary Stock
-            $updateTemporaryStock = TemporaryStock::where('action_format', 'Spi')->where('spi_product_id', $request->spi_product_id)->first();
-            if($updateTemporaryStock) {
-                $updateTemporaryStock->update([
-                    'product_id' => $product['product_id'],
-                    'waiting_stock_out' => $product['qty'] ?? 0,
-                ]);
-            }else {
-                $saveForTemporaryStock = [
-                    'action_format' => 'Spi',
-                    'product_id' => $product['product_id'],
-                    'ppi_spi_id' =>  $request->spi_id,
-                    'ppi_product_id' => null,
-                    'spi_product_id' => $request->spi_product_id,
-                    'waiting_stock_in' => 0,
-                    'waiting_stock_out' => $product['qty'] ?? 0,
-                    'warehouse_id' => request()->get('warehouse_id'),
-                    'created_at' => Carbon::now(),
-                    'updated_at' => Carbon::now()
-                ];
-                TemporaryStock::create($saveForTemporaryStock);
-            }
-
-            $doStatus = $this->ppiSpiStatusController->spiActionStatus([
-                'wh_id' => request()->get('warehouse_id'),
-                'spi_id' => $request->spi_id,
-                'action' => 'spi_product_edited',
-                'spi_product_id' => $request->spi_product_id,
-                'note' => 'Product: '.$this->Model('Product')::name($product['product_id']),
-                'redirect' => false,
-                'get_status_data' => true,
             ]);
 
-
-
-            // History Create
-            $status_id = $doStatus->id;
-            $newInfo = $this->ppi_spi_history->arrangeSpiData($request->spi_id);
-            $this->ppi_spi_history->createHistory([
-                'ppi_spi_id' => $request->spi_id,
-                'action_format' => 'Spi',
-                'chunck_old_data' => $busketInfo,
-                'chunck_new_data' => $newInfo,
-                'status_id' => $status_id,
+            return response()->json([
+                'success' => true,
+                'message' => 'Product updated successfully'
             ]);
+        } catch (\Exception $e) {
+            \Log::error('SpiProduct update error: ' . $e->getMessage());
+            \Log::error('Stack: ' . $e->getTraceAsString());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
         }
-
-        $spi = PpiSpi::find($request->spi_id);
-        return redirect()->route('spi_edit', [$this->wh_code, $spi->id])->with(['status' => 1, 'message' => 'Successfully product updated']);
     }
 
     /**
      * destroy
      *
-     * @return void
+     * @return JsonResponse|RedirectResponse
      */
     public function destroy($wh_code, $id){
 //        dd($id);
@@ -298,6 +348,7 @@ class SpiProductController extends SingleWarehouseController
             ->where('action_format', 'Spi')->delete();
 
         //$done = true;
+        $status_id = null;
         if($done){
             $doStatus =  $this->ppiSpiStatusController->spiActionStatus([
                 'wh_id' => request()->get('warehouse_id'),
@@ -308,19 +359,30 @@ class SpiProductController extends SingleWarehouseController
                 'redirect' => false,
                 'get_status_data' => true,
             ]);
+            $status_id = $doStatus->id;
         }
 
         // History Create
-        $status_id = $doStatus->id;
-        $newInfo = $this->ppi_spi_history->arrangeSpiData($data->spi_id);
-        $this->ppi_spi_history->createHistory([
-            'ppi_spi_id' => $data->spi_id,
-            'action_format' => 'Spi',
-            'chunck_old_data' => $busketInfo,
-            'chunck_new_data' => $newInfo,
-            'status_id' => $status_id,
-        ]);
+        if($status_id){
+            $newInfo = $this->ppi_spi_history->arrangeSpiData($data->spi_id);
+            $this->ppi_spi_history->createHistory([
+                'ppi_spi_id' => $data->spi_id,
+                'action_format' => 'Spi',
+                'chunck_old_data' => $busketInfo,
+                'chunck_new_data' => $newInfo,
+                'status_id' => $status_id,
+            ]);
+        }
         //End
+
+        // Return JSON response for AJAX requests or redirect for traditional requests
+        if (request()->expectsJson() || request()->is('*/spi/product/delete/*')) {
+            return response()->json([
+                'success' => true,
+                'status' => 0,
+                'message' => 'Successfully deleted'
+            ]);
+        }
 
         return redirect()->back()->with(['status' => 0, 'message' => 'Successfully deleted']);
 
