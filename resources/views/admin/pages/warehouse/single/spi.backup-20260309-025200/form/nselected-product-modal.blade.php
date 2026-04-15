@@ -278,17 +278,12 @@
                                    class="p-0 d-inline-block border-gray bw-1 h-20 text-center w-25"
                                    data-qty="{{$input_Qty}}"
                                    name=""
-                                   value="0"
+                                   value="{{$input_Qty}}"
                                    data-max="{{ $stockInhand }}"
-                                   data-min="0"
-                                   data-bundle-id="{{$bundle_id}}"
-                                   data-ppi-product-id="{{$item->ppi_product_id}}"
-                                   data-ppi-id="{{$item->ppi_spi_id}}"
-                                   data-original-project="{{$original_project}}"
-                                   data-landed-project="{{$landed_project}}">
+                                   data-min="0">
                                 <!-- <span class="text-danger">MTR</span> -->
                             @if($input_Qty > 0)
-                                <!-- <button type="button" class="btn-dt bg-primary text-white bw-1 bg-primary border-primary"
+                                <button type="button" class="btn-dt bg-primary text-white bw-1 bg-primary border-primary"
                                         id="sing_qty_add"
                                         data-bundle_id="{{$bundle_id}}"
                                         data-ppi_product_id="{{$item->ppi_product_id}}"
@@ -298,7 +293,7 @@
                                         data-original_project="{{$original_project}}"
                                         data-landed_project="{{$landed_project}}">
                                     Add
-                                </button> -->
+                                </button>
                             @endif
                             
                         </div>
@@ -313,18 +308,12 @@
     </div>
 
 </div>
-
-<!-- Modal Footer with Total and Generate Button -->
-<div id="bulkAddFooter" style="display: none;">
-    <div class="me-auto">
-        <strong>Total Quantity: <span id="totalAddedQty" class="badge bg-primary">0</span></strong>
-    </div>
-    <button type="button" class="btn btn-secondary" id="bulkCloseBtnFooter" data-bs-dismiss="modal">Close</button>
-    <button type="button" class="btn btn-primary" id="generateProductBoxBtn">Generate Product Box</button>
-</div>
 <script>
-    // Use event delegation for input - works for any value change (keyup, paste, etc)
-    $(document).on('input', 'input#sing_qty', function () {
+    $('.selectedProductInfoOpenModal  .modal-footer button').click(function(){
+        $('.selected-product-modal').empty()
+    })
+    let inputSingQty = $("input#sing_qty");
+    $(inputSingQty).keyup(function () {
         let thisVal = $(this).val()
         let maxVal = $(this).data('max')
         let minVal = $(this).data('min')
@@ -337,174 +326,35 @@
         } else {
 
         }
-        updateTotalAddedQuantity();
-    });
 
-    // Update total quantity on input change
-    function updateTotalAddedQuantity() {
-        let total = 0;
-        // Select all qty inputs in the modal using the tr class (which is applied to each row)
-        $('#selectedProductInfoOpenModal input#sing_qty, .selectedProductInfoOpenModal input#sing_qty').each(function() {
-            const qty = parseInt($(this).val()) || 0;
-            if (qty > 0) {
-                total += qty;
-            }
-        });
-        $('#totalAddedQty').text(total);
-    }
+    })
 
-    // Generate Product Boxes from all quantities
-    $(document).on('click', '#generateProductBoxBtn', function() {
-        const products = [];
-        // Get warehouse_id directly from Blade template
-        const warehouseId = "{{$warehouse_id}}";
-
-        // Collect all quantities from all rows - use tr class selector
-        $('#selectedProductInfoOpenModal input#sing_qty, .selectedProductInfoOpenModal input#sing_qty').each(function(index) {
-            const $input = $(this);
-            const $row = $input.closest('.tr, .ekhonKortasi');
-            const qty = parseInt($input.val()) || 0;
-            
-            // Skip if qty is 0
-            if (qty === 0) return;
-            
-            const ppiId = $input.data('ppi-id');
-            const ppiProductId = $input.data('ppi-product-id');
-            const bundleId = $input.data('bundle-id') || null;
-            const originalProject = $input.data('original-project');
-            const landedProject = $input.data('landed-project');
-            
-            // Get product name from the row
-            const productName = $row.find('strong').first().text() || 'Product';
-            const unitPrice = $row.find('span:contains("Unit Price:")').next().text() || '0';
-
-            products.push({
-                ppiId: ppiId,
-                ppiProductId: ppiProductId,
-                bundleId: bundleId,
-                qty: qty,
-                originalProject: originalProject,
-                landedProject: landedProject,
-                productName: productName,
-                unitPrice: unitPrice,
-                warehouseId: warehouseId
-            });
-        });
-
-        if (products.length === 0) {
-            alert('Please add quantities to at least one product');
-            return;
+    $('button#sing_qty_add').click(function () {
+        let selectedRow = $(this).data('selected_row');
+        let selectedRowCls = $('.selectedRow' + selectedRow + ' input#sing_qty');
+        let qty = selectedRowCls.val();
+        //alert(qty);
+        //let qty = $(this).data('product_qty');
+        $(".colgroup.prb{{$row_id}} input#qty").val(qty)
+        let ppiId = $(this).data('ppi_id');
+        let ppiProductId = $(this).data('ppi_product_id');
+        let fromWarehouse = "{{$warehouse_id}}"
+        let bundleID = $(this).data('bundle_id');
+        let originalProject =  $(this).data('original_project');
+        let LandedProject = $(this).data('landed_project');
+        // alert(ppiId)
+        let html = '<input type="hidden" value="' + ppiId + '" name="product[{{$row_id}}][ppi_id]" />';
+        html += '<input type="hidden" value="' + ppiProductId + '" name="product[{{$row_id}}][ppi_product_id]" />';
+        html += '<input type="hidden" value="' + fromWarehouse + '" name="product[{{$row_id}}][from_warehouse]" />';
+        html += '<input type="hidden" value="' + LandedProject + '" name="product[{{$row_id}}][landed_project]" />';
+        html += '<input type="hidden" value="' + originalProject + '" name="product[{{$row_id}}][originalProject]" />';
+        if (bundleID) {
+            html += '<input type="hidden" value="' + bundleID + '" name="product[{{$row_id}}][bundle_id]" />';
         }
-
-        // Generate product sections
-        generateProductSections(products);
-        
-        // Close modal
+        $('.ppiInformation{{$row_id}} .ppi_id_append').html(html)
         $('.selectedProductInfoOpenModal').modal('hide');
-        toastr.success('Products added successfully');
-    });
-
-    function generateProductSections(products) {
-        const container = $('#spi_product_section');
-        
-        products.forEach((product) => {
-            // Get current max id
-            const maxId = Math.max(0, ...$('.colgroup[data-id]').map(function() {
-                return parseInt($(this).data('id')) || 0;
-            }).get());
-            
-            const newId = maxId + 1;
-            
-            const html = `
-                <div class="col-md-3 mb-2 colgroup prb${newId}" data-id="${newId}">
-                    <div class="card border-1">
-                        <div class="card-header p-1">
-                            <a href="javascript:void(0);" class="remove-product d-inline-block valign-text-bottom me-2 float-end" title="Remove field"><i class="fa fa-times"></i></a>
-                        </div>
-                        <div class="card-body">
-                            <!-- Product Name (Display Only) -->
-                            <div class="form-group">
-                                <label for="product">Select Product</label>
-                                <input type="hidden" name="product[${newId}][product_id]" value="">
-                                <div class="alert alert-info py-2 mb-2">${product.productName}</div>
-                            </div>
-
-                            <!-- Check Stock Button -->
-                            <div class="form-group pb-2">
-                                <label>&nbsp;</label>
-                                <button type="button" class="selectedProductInfo btn btn-sm btn-primary py-0" data-row-id="${newId}">
-                                    Check Stock
-                                </button>
-                            </div>
-
-                            <!-- PPI Information (Hidden Fields) -->
-                            <div class="ppiInformation${newId}">
-                                <div class="ppi_id_append">
-                                    <input type="hidden" value="${product.ppiId}" name="product[${newId}][ppi_id]" />
-                                    <input type="hidden" value="${product.ppiProductId}" name="product[${newId}][ppi_product_id]" />
-                                    <input type="hidden" value="${product.warehouseId}" name="product[${newId}][from_warehouse]" />
-                                    <input type="hidden" value="${product.landedProject}" name="product[${newId}][landed_project]" />
-                                    <input type="hidden" value="${product.originalProject}" name="product[${newId}][originalProject]" />
-                                    ${product.bundleId ? `<input type="hidden" value="${product.bundleId}" name="product[${newId}][bundle_id]" />` : ''}
-                                </div>
-                            </div>
-
-                            <!-- Regular Qty -->
-                            <div class="form-group" id="regular_qty" data-id="${newId}">
-                                <label for="qty">QTY</label>
-                                <input type="number" min="1" name="product[${newId}][qty]" id="qty" class="form-control form-control-sm" value="${product.qty}" required>
-                            </div>
-
-                            <!-- Unit Price -->
-                            <div class="form-group" id="single_product_unit_price" data-id="${newId}">
-                                <label for="single_product_unit_price">Unit Price</label>
-                                <input step="any" type="number" name="product[${newId}][unit_price]" id="single_product_unit_price" class="form-control form-control-sm unit_price" value="${product.unitPrice}">
-                            </div>
-
-                            <!-- Total Price -->
-                            <div class="form-group" id="total_price" data-id="${newId}">
-                                <label for="price">Total Price</label>
-                                <input step="any" type="number" name="product[${newId}][price]" id="price" class="form-control form-control-sm total_price" readonly value="0">
-                            </div>
-
-                            <!-- Note -->
-                            <div class="form-group">
-                                <label for="note">Note</label>
-                                <textarea class="form-control form-control-sm" name="product[${newId}][note]" rows="2"></textarea>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            container.append(html);
-            
-            // Auto-calculate total price
-            calculateTotalPrice(newId);
-        });
-        
-        // Attach event listeners for price calculation
-        attachPriceCalculationListeners();
-    }
-    
-    function calculateTotalPrice(dataId) {
-        const qty = parseFloat($(".prb" + dataId + " #regular_qty #qty").val() || 0);
-        const price = parseFloat($(".prb" + dataId + " #single_product_unit_price #single_product_unit_price").val() || 0);
-        const total = (qty * price).toFixed(2);
-        $(".prb" + dataId + " .total_price").val(total);
-    }
-    
-    function attachPriceCalculationListeners() {
-        $(document).on('keyup change', '#regular_qty #qty, #single_product_unit_price #single_product_unit_price', function() {
-            const dataId = $(this).parents('.colgroup').attr('data-id');
-            calculateTotalPrice(dataId);
-        });
-    }
-    
-    // Remove product section
-    $(document).on('click', '.remove-product', function() {
-        $(this).closest('.colgroup').remove();
-    });
+        toastr.success('Product Qty Added');
+    })
 
     var isLoading = false;
 
@@ -611,24 +461,8 @@
      * Modal Header And Footer Design and Button , Search Box add
      */
     $('.selectedProductInfoOpenModal .modal-header').addClass('d-block py-1 pb-auto').html($('.modal_sub_header_wrap').html())
-    
-    // Setup modal footer with bulk add controls
-    const footerHTML = `
-        <div class="d-flex align-items-center justify-content-between w-100">
-            <div>
-                <strong>Total Quantity: <span id="totalAddedQty" class="badge bg-primary">0</span></strong>
-            </div>
-            <div>
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary btn-sm" id="generateProductBoxBtn">Generate Product Box</button>
-            </div>
-        </div>
-    `;
-    $('.selectedProductInfoOpenModal .modal-footer').addClass('py-1 pb-auto').html(footerHTML)
+    $('.selectedProductInfoOpenModal .modal-footer').addClass('py-1 pb-auto')
     $('.modal_sub_header_wrap').empty();
-    
-    // Initialize total quantity display after footer is set up
-    updateTotalAddedQuantity();
 
     /** Search Functionality */
     $(document).ready(function () {
@@ -676,42 +510,5 @@
         -moz-appearance: textfield;
     }
 </style>
-
-<!-- Bulk Add Modal -->
-<div class="modal fade" id="bulkAddModal" tabindex="-1" aria-labelledby="bulkAddModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="bulkAddModalLabel">Bulk Add Products - Adjust Quantities</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="bulkStockItemsContainer">
-                    <!-- Stock items will be populated here -->
-                </div>
-            </div>
-            <div class="modal-footer">
-                <div class="me-auto">
-                    <strong>Total Quantity to Add: <span id="totalBulkItems" class="badge bg-primary">0</span></strong>
-                </div>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="addSelectedProductsBtn">Add Products</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Store available stocks in JavaScript variable -->
-<script>
-    window.availableStocks = {!! json_encode($getProductStock->map(function($item) {
-        return [
-            'ppi_id' => $item->ppi_spi_id,
-            'ppi_product_id' => $item->ppi_product_id,
-            'project' => $item->ppiSpi->project ?? 'N/A',
-            'stock_in_hand' => $item->stock_in_hand,
-            'bundle_id' => $item->bundle_id
-        ];
-    })->values()) !!};
-</script>
 
 

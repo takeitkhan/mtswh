@@ -18,7 +18,7 @@
                 $ppiStatusFormBtnClass = 'indigo';
                 $ppiStatusFormBtnId = '';
                 $ppiStatusCode = '';
-                $warehouse_code = '';
+                $warehouse_code = request()->get('warehouse_code');
                 $doneThisAction = $Model('PpiSpiStatus')::checkPpiStatus($ppi->id, 'ppi_sent_to_boss');
                 if($doneThisAction){
                     $doneThisActionButton = true;

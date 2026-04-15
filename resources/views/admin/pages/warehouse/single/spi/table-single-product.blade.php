@@ -1,3 +1,4 @@
+@if(!isset($isAjaxRequest))
 <div class="d-none">
     <form></form>
 </div>
@@ -6,61 +7,45 @@
     global $singleProductValidationTotal;
     global $singleProductValidationDone;
 @endphp
+@endif
 <!----- th => ppi-product.blade.php -->
 
 @foreach ($getSpiProduct as $product)
     @php $checkProductIsSet = $Model('PpiSetProduct')::getSet($product->id); @endphp
     @if(count($checkProductIsSet) > 0)
-
+        <!-- Skip set products -->
     @else
-        <tr class="pr_row_{{$product->id}} {{$product->any_warning_cls}}">
-            <td class="not_print">
-                @php
-                    $thisProductDisputeCorrrection = $Model('PpiSpiDispute')::disputeCorrectionDone('Spi', $spi->id, $product->id, ['action_performed_by' => auth()->user()->id, 'route_permission' => 'spi_product_info_correction_by_boss_action']);
-
-                    if($thisProductDisputeCorrrection == true){
-                        if($thisProductDisputeCorrrection == 'true'){
-                            $editClass =  'done_this_action_btn';
-                        }elseif($thisProductDisputeCorrrection == 'correction-not-done') {
-                            //var_dump($thisProductDisputeCorrrection);
-                            $editClass =  null;
-                        }
-                    }else{
-                        $editClass =  'done_this_action_btn';
-                    }
-                @endphp
-
-                <span
-                    class="done_this_action_btn"> {!! $ButtonSet::delete('spi_product_destroy', [$warehouse_code, $product->id]) !!} </span>
-                <span
-                    class="{{$editClass ?? null}} spiProductEditBtn"> {!! $ButtonSet::edit('spi_product_edit', [$warehouse_code, $product->id]) !!}</span>
-
+        <tr class="pr_row_{{$product->id}} {{$product->any_warning_cls}}" data-product-id="{{ $product->id }}">
+            <!-- Delete & Edit Buttons -->
+            <td>
+                <a title="Edit" class="edit text-info font-14" href="javascript:void(0)" data-product-id="{{ $product->id }}">
+                    <span class="fas fa-edit"></span>
+                </a>
+                &nbsp;
+                <a title="Delete" class="delete text-danger font-14" href="javascript:void(0)" data-product-id="{{ $product->id }}">
+                    <span class="fas fa-trash"></span>
+                </a>
             </td>
 
-        @php
-            $disputeData =  $Model('PpiSpiDispute')::disputeData('Spi', $spi->id, $product->id);
+            @php
+                $disputeData =  $Model('PpiSpiDispute')::disputeData('Spi', $spi->id, $product->id);
 
-            $checkThisDisputes = $Model('PpiSpiStatus')::getSpiLastStatus($spi->id, [
-                                'ppi_spi_product_id' => $product->id,
-                                'code' => 'spi_dispute_by_wh_manager',
-                                'status_format' => 'Main'
-                                ]);
-            $checkEditAfterDispute = $Model('PpiSpiStatus')::getSpiLastStatus($spi->id, [
+                $checkThisDisputes = $Model('PpiSpiStatus')::getSpiLastStatus($spi->id, [
                                     'ppi_spi_product_id' => $product->id,
-                                    'code' => 'spi_product_edited'
-                                ]);
+                                    'code' => 'spi_dispute_by_wh_manager',
+                                    'status_format' => 'Main'
+                                    ]);
+                $checkEditAfterDispute = $Model('PpiSpiStatus')::getSpiLastStatus($spi->id, [
+                                        'ppi_spi_product_id' => $product->id,
+                                        'code' => 'spi_product_edited'
+                                    ]);
+            @endphp
 
-        @endphp
-        <!-- Dispute Chcekbox -->
-
+            <!-- Correction Button -->
             <td class="not_print">
-
-                <!-- Correction Button -->
-
-            @if(isset($correctionRoute))
-
-                @if($disputeData && !empty($checkEditAfterDispute) && !empty($checkThisDisputes) && $checkEditAfterDispute->id > $checkThisDisputes->id)
-                    <!--show  If dispute  correction done -->
+                @if(isset($correctionRoute))
+                    @if($disputeData && !empty($checkEditAfterDispute) && !empty($checkThisDisputes) && $checkEditAfterDispute->id > $checkThisDisputes->id)
+                        <!--show  If dispute  correction done -->
                         @if($coorectionData = $Model('PpiSpiDispute')::checkDisputeCorrection('Spi', $disputeData->id))
                             <i class="fa fa-check-circle m-0 h3 w-auto text-success" style="font-size: 20px;"></i>
                         @else
@@ -84,66 +69,54 @@
                             !!}
                         @endif
                     @endif
-
-        @endif
+                @endif
             </td>
-        <!-- End checkbox -->
 
-
-            <!-- product Name -->
-            <td title="product-id={{$product->product_id}} spi_product_id={{$product->spi_product_id}} ppi_product_id={{$product->ppi_product_id}} ppi_id={{$product->ppi_id}}"
-                class="product {{!empty($Model('PpiSpiDispute')::checkProductForDispute('Spi', $spi->id, $product->id, 'product')) ? 'text-danger fw-bold' : '' }}">
-                {!! $product->product_name !!}
+            <!-- Product Name -->
+            <td class="product {{!empty($Model('PpiSpiDispute')::checkProductForDispute('Spi', $spi->id, $product->id, 'product')) ? 'text-danger fw-bold' : '' }}">
+                <strong>{{ $product->product_name }}</strong>
             </td>
-            <!-- Qty -->
+
+            <!-- Quantity (Editable) -->
             <td class="qty p-1 {{!empty($Model('PpiSpiDispute')::checkProductForDispute('Spi', $spi->id, $product->id, 'qty')) ? 'text-danger fw-bold' : '' }}">
-
-                <table>
-                    <thead>
-                    <tr>
-                        @if($product->bundle_id)
-                            <th title="Bundle Size " class="bundle-row text-center">Size</th>
-                        @else
-                            <th title="Qty" class="bundle-row text-center">Qty</th>
-                        @endif
-                        <th title="Unit Price" class="bundle-row text-center ppi_product_price_show">Price</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr>
-                        <td
-                            @if($product->bundle_id)
-                                title="bundle_id: {{$product->bundle_id}}"
-                            @endif
-                            class="bundle-row text-center">{!! $product->qty !!}</td>
-                        <td class="bundle-row text-center ppi_product_price_show">{!! $product->unit_price !!}</td>
-                    </tr>
-                    </tbody>
-                </table>
-
+                <input type="number" class="form-control form-control-sm qty-input" value="{{ $product->qty }}" min="1" data-old-value="{{ $product->qty }}" data-product-id="{{ $product->id }}">
             </td>
-            <!-- unit -->
+
+            <!-- Unit -->
             <td class="unit">
                 @if($product->product_state == 'Cut-Piece')
                     Bundle
                 @else
-                    {!! $Model('AttributeValue')::getValueById($product->product_unit_id)  !!}
+                    {!! $Model('AttributeValue')::getValueById($product->product_unit_id) !!}
                 @endif
             </td>
 
-            <!-- Price -->
-            <td class="not_print price ppi_product_price_show {{!empty($Model('PpiSpiDispute')::checkProductForDispute('Spi', $spi->id, $product->id, 'price')) ? 'text-danger fw-bold' : '' }}">
-                {!! $product->price !!}
+            <!-- Price (Editable) -->
+            <td class="price p-1 ppi_product_price_show {{!empty($Model('PpiSpiDispute')::checkProductForDispute('Spi', $spi->id, $product->id, 'price')) ? 'text-danger fw-bold' : '' }}">
+                <input type="number" class="form-control form-control-sm unit-price-input" value="{{ $product->unit_price }}" step="0.01" min="0" data-old-value="{{ $product->unit_price }}" data-product-id="{{ $product->id }}">
             </td>
 
-            <td>  {!! $productState =  $Model('PpiProduct')::ppiProductInfoByPpiProductId($product->ppi_product_id, ['column' => 'product_state']) !!} </td>
-            <td>  {!! $Model('PpiProduct')::ppiProductInfoByPpiProductId($product->ppi_product_id, ['column' => 'health_status']) !!} </td>
-            <td> {!! $product->barcode_format !!} </td>
-            <td class="not_print"> {!! $product->note !!} </td>
-            <td>
+            <!-- Product State -->
+            <td class="ppi-info-col">{!! $Model('PpiProduct')::ppiProductInfoByPpiProductId($product->ppi_product_id, ['column' => 'product_state']) !!}</td>
+
+            <!-- Health Status -->
+            <td class="ppi-info-col">{!! $Model('PpiProduct')::ppiProductInfoByPpiProductId($product->ppi_product_id, ['column' => 'health_status']) !!}</td>
+
+            <!-- Barcode Format -->
+            <td class="not_print ppi-info-col">{!! $product->barcode_format !!}</td>
+
+            <!-- Notes (Editable) -->
+            <td class="note p-1">
+                <input type="text" class="form-control form-control-sm notes-input" placeholder="Notes" value="{{ $product->note ?? '' }}" data-old-value="{{ $product->note ?? '' }}" data-product-id="{{ $product->id }}">
+            </td>
+
+            <!-- From Warehouse -->
+            <td class="ppi-info-col">
                 {{ ($product->from_warehouse != $product->warehouse_id) ? 'Lended' : 'Regular' }} <br>
                 From {{$Model('Warehouse')::name($product->from_warehouse)}}
             </td>
+
+            <!-- Dispute Note -->
             <td class="not_print">
                 @if($disputeData)
                     <span class="alert-danger">
@@ -154,27 +127,27 @@
                     @if($coorectionData = $Model('PpiSpiDispute')::checkDisputeCorrection('Spi', $disputeData->id))
                         <br>
                         <span class="alert-success">
-                        <span
-                            class="class">Correction by {{$Model('User')::getColumn($coorectionData->action_performed_by, 'name')}}</span>
+                        <span class="class">Correction by {{$Model('User')::getColumn($coorectionData->action_performed_by, 'name')}}</span>
                     </span>
                     @endif
                 @endif
             </td>
+
+            <!-- Physical Validation -->
             <td class="text-center not_print">
                 @php
                     $checkStockOutThisProduct = false;
                 @endphp
                 @if(auth()->user()->hasRoutePermission('spi_get_line_item'))
-                    <?php if ($productState == 'Cut-Piece') {
-                        $bundleName = $product->bundle_id;
-                        $addBundleGetMethod = '?bundle=' . $bundleName;
-                    } else {
-                        $addBundleGetMethod = null;
+                    <?php if ($productState = $Model('PpiProduct')::ppiProductInfoByPpiProductId($product->ppi_product_id, ['column' => 'product_state'])) {
+                        if ($productState == 'Cut-Piece') {
+                            $bundleName = $product->bundle_id;
+                            $addBundleGetMethod = '?bundle=' . $bundleName;
+                        } else {
+                            $addBundleGetMethod = null;
+                        }
                     }
 
-                    //$ppiLastPpiProductStatus = $Model('PpiSpiStatus')::getSpiLastStatus($spi->id, ['ppi_spi_product_id' => $product->spi_product_id]);
-                    //$ppiLastPpiProductStatusCode = $ppiLastPpiProductStatus->code ?? null;
-                    //dump($ppiLastPpiProductStatusCode);
                     $checkStockOutThisProduct = $Model('PpiSpiStatus')::checkSpiStatus($spi->id, 'spi_product_out_from_stock', ['ppi_spi_product_id' => $product->spi_product_id]);
 
                     if ($checkStockOutThisProduct) {
@@ -183,7 +156,7 @@
                         $singleProductValidationComplete += 1;
                     } else {
                         $validationBgColor = 'blue';
-                        $validationText = 'Vailidation';
+                        $validationText = 'Validation';
                     }
                     $singleProductValidationTotal += 1;
 
@@ -206,6 +179,14 @@
                     <p class="badge bg-success mt-2">Stocked out</p>
                 @endif
             </td>
+
+            <!-- Save Button -->
+            <td class="not_print text-center">
+                <a title="Save" class="save text-success font-14" href="javascript:void(0)" data-product-id="{{ $product->id }}" style="display: none;">
+                    <span class="fas fa-save"></span>
+                </a>
+            </td>
+
         </tr>
     @endif
 @endforeach

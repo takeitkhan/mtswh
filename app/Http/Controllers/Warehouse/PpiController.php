@@ -224,11 +224,12 @@ class PpiController extends SingleWarehouseController
                         ]);
                 $ppiLastStatus = $getTranslateText ?? $ppiLastSts->message;
                 $checkSentToBoss = $thiss->Model("PpiSpiStatus")::checkPpiStatus($data->id, "ppi_sent_to_boss");
+                $getWarehouseCode = $thiss->Model("Warehouse")::getColumn($data->warehouse_id, "code");
         ';
         /** Filed Show for loop */
         $fields = [
-            'button' => '(($checkSentToBoss && auth()->user()->checkUserRoleTypeGeneral()) ? null : $this->ButtonSet::delete("ppi_destroy", [request()->get("warehouse_code"), $data->id]))
-                           .$this->ButtonSet::edit("ppi_edit", [request()->get("warehouse_code"), $data->id])',
+            'button' => '(($checkSentToBoss && auth()->user()->checkUserRoleTypeGeneral()) ? null : $this->ButtonSet::delete("ppi_destroy", [$getWarehouseCode, $data->id]))
+                           .$this->ButtonSet::edit("ppi_edit", [$getWarehouseCode, $data->id])',
             'id' => '$data->id',
             'ppi_type' => '"<span class=\"$checkDisputes\">".$data->ppi_spi_type."</span>"',
             'project' => '$data->project',
@@ -241,7 +242,7 @@ class PpiController extends SingleWarehouseController
             'root_source' => '$data->root_source',
             'action_performed_by' => '$this->Model("User")::getColumn($data->action_performed_by, "name")',
             'created_at' => '$data->created_at->format("Y-m-d")',
-            'pdf' => '($ppiLastSts->code == "ppi_all_steps_complete" || $ppiLastSts->code == "ppi_challan_pdf_printed") ? "<a href=\"".route("ppi_challan_pdf_preview", [request()->get("warehouse_code"), $data->id, "ppi_all_steps_complete"])."\" target=\"_blank\" class=\"btn btn-sm btn-success\"><i class=\"fa fa-file-pdf\"></i> PDF</a>" : "<span class=\"text-muted small\">-</span>"',
+            'pdf' => '($ppiLastSts->code == "ppi_all_steps_complete" || $ppiLastSts->code == "ppi_challan_pdf_printed") ? "<a href=\"".route("ppi_challan_pdf_preview", [$getWarehouseCode, $data->id, "ppi_all_steps_complete"])."\" target=\"_blank\" class=\"btn btn-sm btn-success\"><i class=\"fa fa-file-pdf\"></i> PDF</a>" : "<span class=\"text-muted small\">-</span>"',
         ];
         //dd($fields);
 

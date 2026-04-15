@@ -155,9 +155,18 @@ class SpiProductController extends SingleWarehouseController
 
             // Generate HTML for newly added products to return immediately
             $spi = PpiSpi::findOrFail($request->spi_id);
-            $getSpiProduct = $spi->spiProducts()
-                ->with('product')
-                ->orderBy('created_at', 'desc')
+            // Use leftjoin instead of with() to properly load product_name
+            $getSpiProduct = SpiProduct::leftJoin('products', 'products.id', 'spi_products.product_id')
+                ->select(
+                    'spi_products.*',
+                    'spi_products.id as spi_product_id',
+                    'products.id as product_id',
+                    'products.name as product_name',
+                    'products.unit_id as product_unit_id',
+                    'products.barcode_format as barcode_format'
+                )
+                ->where('spi_products.spi_id', $request->spi_id)
+                ->orderBy('spi_products.created_at', 'desc')
                 ->get();
 
             $wh_code = request()->get('warehouse_code');
@@ -166,18 +175,18 @@ class SpiProductController extends SingleWarehouseController
             $html = '';
             foreach ($getSpiProduct as $product) {
                 // Skip set products
-                $checkProductIsSet = $this->Model('PpiSetProduct')::getSet($product->id);
+                $checkProductIsSet = $this->Model('PpiSetProduct')::getSet($product->spi_product_id);
                 if(count($checkProductIsSet) > 0) continue;
 
-                $html .= '<tr class="pr_row_' . $product->id . '" data-product-id="' . $product->id . '">';
+                $html .= '<tr class="pr_row_' . $product->spi_product_id . '" data-product-id="' . $product->spi_product_id . '">';
                 
                 // Edit & Delete Buttons
                 $html .= '<td>';
-                $html .= '<a title="Edit" class="edit text-info font-14" href="javascript:void(0)" data-product-id="' . $product->id . '">';
+                $html .= '<a title="Edit" class="edit text-info font-14" href="javascript:void(0)" data-product-id="' . $product->spi_product_id . '">';
                 $html .= '<span class="fas fa-edit"></span>';
                 $html .= '</a>';
                 $html .= '&nbsp;';
-                $html .= '<a title="Delete" class="delete text-danger font-14" href="javascript:void(0)" data-product-id="' . $product->id . '">';
+                $html .= '<a title="Delete" class="delete text-danger font-14" href="javascript:void(0)" data-product-id="' . $product->spi_product_id . '">';
                 $html .= '<span class="fas fa-trash"></span>';
                 $html .= '</a>';
                 $html .= '</td>';
@@ -190,7 +199,7 @@ class SpiProductController extends SingleWarehouseController
                 
                 // QTY Input
                 $html .= '<td class="qty p-1">';
-                $html .= '<input type="number" class="form-control form-control-sm qty-input" value="' . $product->qty . '" min="1" data-old-value="' . $product->qty . '" data-product-id="' . $product->id . '">';
+                $html .= '<input type="number" class="form-control form-control-sm qty-input" value="' . $product->qty . '" min="1" data-old-value="' . $product->qty . '" data-product-id="' . $product->spi_product_id . '">';
                 $html .= '</td>';
                 
                 // Unit
@@ -205,7 +214,7 @@ class SpiProductController extends SingleWarehouseController
                 
                 // Price Input
                 $html .= '<td class="price p-1 ppi_product_price_show">';
-                $html .= '<input type="number" class="form-control form-control-sm unit-price-input" value="' . $product->unit_price . '" step="0.01" min="0" data-old-value="' . $product->unit_price . '" data-product-id="' . $product->id . '">';
+                $html .= '<input type="number" class="form-control form-control-sm unit-price-input" value="' . $product->unit_price . '" step="0.01" min="0" data-old-value="' . $product->unit_price . '" data-product-id="' . $product->spi_product_id . '">';
                 $html .= '</td>';
                 
                 // Product State
@@ -221,7 +230,7 @@ class SpiProductController extends SingleWarehouseController
                 
                 // Notes Input
                 $html .= '<td class="note p-1 not_print">';
-                $html .= '<input type="text" class="form-control form-control-sm notes-input" placeholder="Notes" value="' . ($product->note ?? '') . '" data-old-value="' . ($product->note ?? '') . '" data-product-id="' . $product->id . '">';
+                $html .= '<input type="text" class="form-control form-control-sm notes-input" placeholder="Notes" value="' . ($product->note ?? '') . '" data-old-value="' . ($product->note ?? '') . '" data-product-id="' . $product->spi_product_id . '">';
                 $html .= '</td>';
                 
                 // From Warehouse
@@ -238,7 +247,7 @@ class SpiProductController extends SingleWarehouseController
                 
                 // Save Button
                 $html .= '<td class="not_print text-center">';
-                $html .= '<a title="Save" class="save text-success font-14" href="javascript:void(0)" data-product-id="' . $product->id . '" style="display: none;">';
+                $html .= '<a title="Save" class="save text-success font-14" href="javascript:void(0)" data-product-id="' . $product->spi_product_id . '" style="display: none;">';
                 $html .= '<span class="fas fa-save"></span>';
                 $html .= '</a>';
                 $html .= '</td>';

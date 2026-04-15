@@ -26,6 +26,9 @@ class SpiProduct extends Model
     public function ppiProduct(){
         return $this->hasOne('\App\Models\PpiProduct','id', 'ppi_product_id');
     }
+    public function product(){
+        return $this->hasOne('\App\Models\Product','id', 'product_id');
+    }
     public function productInfo(){
         return $this->hasOne('\App\Models\Product','id', 'product_id');
     }

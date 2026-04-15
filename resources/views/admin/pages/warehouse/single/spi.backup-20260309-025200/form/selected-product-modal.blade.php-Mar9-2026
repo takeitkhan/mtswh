@@ -1,3 +1,8 @@
+========
+========
+========
+
+
 <div class="selected-product-modal" id="reload_modal">
 
     <?php
@@ -33,7 +38,7 @@
     ?>
 
     <div class="modal_sub_header_wrap">
-        <div class="warehouse_list bg-warning bg-gradient mt-2">
+        <div class="warehouse_list bg-warning bg-gradient">
             @php
                 $warehouses = $Model('Warehouse')::get();
             @endphp
@@ -76,7 +81,33 @@
 
             </div>
             <div class="flex-fill text-end">
-                
+                <?php /*
+                <button class="btn_browse btn my-2 {{$browse == 'Supply' ? 'btn-primary' : 'btn-outline-primary'}}"
+                        type="button" data-browse="Supply" data-row_id=" {{$row_id}}"
+                        data-warehouse_id="{{$warehouse_id}}" data-warehouse_code={{$warehouse->code}}
+                            data-product_id="{{$product_id}}">Supply</button>
+
+                <button class="btn_browse btn my-2 {{$browse == 'Service' ? 'btn-primary' : 'btn-outline-primary'}}"
+                        type="button" data-browse="Service" data-row_id=" {{$row_id}}"
+                        data-warehouse_id="{{$warehouse_id}}" data-warehouse_code={{$warehouse->code}}
+                            data-product_id="{{$product_id}}">Service</button>
+ */?>
+                <?php /*
+                <ul class="nav nav-tabs d-inline-flex">
+                    <li class="nav-item">
+                        <button type="button" class="nav-link btn_browse d-inline-block   py-1 {{$browse == 'Supply' ? 'active' : ''}}"
+                           type="button" data-browse="Supply" data-row_id=" {{$row_id}}"
+                           data-warehouse_id="{{$warehouse_id}}" data-warehouse_code={{$warehouse->code}}
+                            data-product_id="{{$product_id}}">Supply</button>
+                    </li>
+                    <li class="nav-item">
+                        <button type="button" class="nav-link btn_browse d-inline-block   py-1 {{$browse == 'Service' ? 'active' : ''}}"
+                           type="button" data-browse="Service" data-row_id=" {{$row_id}}"
+                           data-warehouse_id="{{$warehouse_id}}" data-warehouse_code={{$warehouse->code}}
+                            data-product_id="{{$product_id}}">Service</button>
+                    </li>
+                </ul>
+                */ ?>
             </div>
         </div>
         <div class="mt-2">
@@ -117,51 +148,52 @@
            @if($stockInHand > 0)
                 <div class="col-lg-12 mb-2 font-11 bw-1 border-gray p-2 shadow-sm tr xselectedRowId{{$makeKey}}">
                     <div class="">
-                        <span class="td">
-                            <span title="ppi_product_id: {{$item->ppiProduct->id}} product_id: {{$item->productInfo->id}}">
-                                <strong>{{$item->action_format}} ID:</strong> <span
-                                    class="tdshow">{{$item->ppi_spi_id}} </span> <span class="text-dark fw-bold">.</span>
-                            </span>
-                            <span>
-                                <strong>{{$item->action_format}} Type:</strong> {{$item->ppiSpi->ppi_spi_type}} <span
-                                    class="text-dark fw-bold">.</span>
-                            </span>
-                            <span>
-                                <strong>Project:</strong> <span class="tdshow">{{$item->ppiSpi->project}}</span> <span
-                                    class="text-dark fw-bold">.</span>
-                            </span>
-                            <span>
-                                <strong>Stock in hand:</strong> {{ $stockInHand}}
-                                <span class="text-dark fw-bold">.</span>
-                            </span>
-                            <span>
-                                <strong>Product State:</strong>  <span
-                                    class="tdshow">  {{$item->ppiProduct->product_state }} </span> <span
-                                    class="text-dark fw-bold">.</span>
-                            </span>
-                            <span>
-                                <strong>Health Status:</strong> <span
-                                    class="tdshow">{{$item->ppiProduct->health_status }} </span> <span
-                                    class="text-dark fw-bold">.</span>
-                            </span>
-                            <span>
-                                <strong>Unit Price:</strong> {{$item->ppiProduct->unit_price}}
-                            </span>
-                            <br>
-                            <!-- If Bundle -->
+                            <span class="td">
 
-                            <div class="crumbswrapper d-inline-block">
-                                <div class="crumbs mx-1 my-0 mt-1" id="source_breadcrumb">
-                                    <?php foreach($item->source as $source): ?>
-                                        <div class="innerwrap">
-                                            <span class="innerItem font-11 ps-2 pe-1 tdshow">
-                                                <span>{{$source->source_type}}:</span> {{$source->who_source}}
-                                            </span>
-                                        </div>
-                                    <?php endforeach;?>
+                                <span title="ppi_product_id: {{$item->ppiProduct->id}} product_id: {{$item->productInfo->id}}">
+                                    <strong>{{$item->action_format}} ID:</strong> <span
+                                        class="tdshow">{{$item->ppi_spi_id}} </span> <span class="text-dark fw-bold">.</span>
+                                </span>
+                                <span>
+                                    <strong>{{$item->action_format}} Type:</strong> {{$item->ppiSpi->ppi_spi_type}} <span
+                                        class="text-dark fw-bold">.</span>
+                                </span>
+                                <span>
+                                    <strong>Project:</strong> <span class="tdshow">{{$item->ppiSpi->project}}</span> <span
+                                        class="text-dark fw-bold">.</span>
+                                </span>
+                                <span>
+                                    <strong>Stock in hand:</strong> {{ $stockInHand}} <span class="text-dark fw-bold">.</span>
+                                </span>
+                                <span>
+                                    <strong>Product State:</strong>  <span
+                                        class="tdshow">  {{$item->ppiProduct->product_state }} </span> <span
+                                        class="text-dark fw-bold">.</span>
+                                </span>
+                                <span>
+                                    <strong>Health Status:</strong> <span
+                                        class="tdshow">{{$item->ppiProduct->health_status }} </span> <span
+                                        class="text-dark fw-bold">.</span>
+                                </span>
+                                <span>
+                                    <strong>Unit Price:</strong> {{$item->ppiProduct->unit_price}}
+                                </span>
+                                <br>
+                                <!-- If Bundle -->
+
+                                <div class="crumbswrapper d-inline-block">
+                                    <div class="crumbs mx-1 my-0 mt-1" id="source_breadcrumb">
+                                        <?php foreach($item->source as $source): ?>
+                                            <div class="innerwrap">
+                                                <span class="innerItem font-11 ps-2 pe-1 tdshow">
+                                                    <span>{{$source->source_type}}:</span> {{$source->who_source}}
+                                                </span>
+                                            </div>
+                                        <?php endforeach;?>
+                                    </div>
                                 </div>
-                            </div>
-                        </span>
+                            </span>
+
                         <div class="float-end text-end">
                             <label for="">Qty</label>
                             <input type="number" id="sing_qty"
@@ -171,7 +203,7 @@
                                    value="{{$input_Qty}}"
                                    data-max="{{ $stockInHand }}"
                                    data-min="0"/>
-                            <!-- <span class="text-danger">MTR</span>
+                            <span class="text-danger">MTR</span>
                             @if($input_Qty > 0)
                                 <button type="button" class="btn-dt bg-primary text-white bw-1 bg-primary border-primary"
                                         id="sing_qty_add"
@@ -185,7 +217,6 @@
                                     Add
                                 </button>
                             @endif
-                                    -->
                         </div>
                     </div>
                 </div>
@@ -666,3 +697,5 @@
         -moz-appearance: textfield;
     }
 </style>
+
+

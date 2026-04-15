@@ -268,11 +268,12 @@ class SpiController extends SingleWarehouseController
                         ]);
                 $spiLastStatus = $getTranslateText ?? $spiLastSts->message;
                 $checkSentToBoss = $thiss->Model("PpiSpiStatus")::checkSpiStatus($data->id, "spi_sent_to_boss");
+                $getWarehouseCode = $thiss->Model("Warehouse")::getColumn($data->warehouse_id, "code");
         ';
         /** Filed Show for loop */
         $fields = [
-            'button' => '(($checkSentToBoss && auth()->user()->checkUserRoleTypeGeneral()) ? null : $this->ButtonSet::delete("spi_destroy", [request()->get("warehouse_code"), $data->id]))
-            .$this->ButtonSet::edit("spi_edit", [request()->get("warehouse_code"), $data->id])',
+            'button' => '(($checkSentToBoss && auth()->user()->checkUserRoleTypeGeneral()) ? null : $this->ButtonSet::delete("spi_destroy", [$getWarehouseCode, $data->id]))
+            .$this->ButtonSet::edit("spi_edit", [$getWarehouseCode, $data->id])',
             'id' => '$data->id',
             'spi_type' => '"<span class=\"$checkDisputes\">".$data->ppi_spi_type."</span>"',
             'project' => '$data->project',
@@ -285,7 +286,7 @@ class SpiController extends SingleWarehouseController
             'root_source' => '$data->root_source',
             'action_performed_by' => '$this->Model("User")::getColumn($data->action_performed_by, "name")',
             'created_at' => '$data->created_at->format("d M Y H:i a")',
-            'pdf' => '($spiLastSts->code == "spi_all_steps_complete") ? "<a href=\"".route("spi_delivery_challan_view", [request()->get("warehouse_code"), $data->id, "spi_all_steps_complete"])."\" target=\"_blank\" class=\"btn btn-sm btn-success\"><i class=\"fa fa-file-pdf\"></i> PDF</a>" : "<span class=\"text-muted small\">-</span>"',
+            'pdf' => '($spiLastSts->code == "spi_all_steps_complete") ? "<a href=\"".route("spi_delivery_challan_view", [$getWarehouseCode, $data->id, "spi_all_steps_complete"])."\" target=\"_blank\" class=\"btn btn-sm btn-success\"><i class=\"fa fa-file-pdf\"></i> PDF</a>" : "<span class=\"text-muted small\">-</span>"',
         ];
 
         return $this->Datatable::generate($request, $query, $fields, ['searchquery' => $sq, 'daterange' => 'ppi_spis.created_at', 'phpcode' => $phpCode, 'orderby' => 'desc']);
@@ -340,6 +341,77 @@ class SpiController extends SingleWarehouseController
         }
     }
 
+    /**
+     * Get PPI list for selected product (JSON response for new inline UI)
+     */
+    public function getPpiListForProduct(Request $request)
+    {
+        try {
+            $product_id = $request->product_id;
+            $spi_id = $request->spi_id;
+            $warehouse_code = $request->warehouse_code ?? request()->get('warehouse_code');
+
+            if (!$product_id) {
+                return response()->json(['success' => false, 'message' => 'Product ID is required'], 400);
+            }
+
+            // Get the product details
+            $product = $this->Model('Product')::find($product_id);
+            if (!$product) {
+                return response()->json(['success' => false, 'message' => 'Product not found'], 404);
+            }
+
+            // Get PPIs for this product from different warehouses
+            // PPIs are products that are in stock in different warehouses/suppliers
+            $ppis = $this->Model('PpiProduct')::where('product_id', $product_id)
+                ->with([
+                    'ppiSpi' => function($q) {
+                        $q->select('id', 'warehouse_id');
+                        $q->with(['warehouse:id,name,code']);
+                    }
+                ])
+                ->select('id as ppi_id', 'product_id', 'ppi_id as ppi_spi_id', 'warehouse_id', 'qty as quantity_in_stock', 'unit_price', 'product_state', 'health_status')
+                ->orderBy('unit_price', 'asc')
+                ->get();
+
+            $ppiList = [];
+            foreach ($ppis as $ppi) {
+                $warehouseName = 'N/A';
+                $ppiWarehouseId = $ppi->warehouse_id;
+                
+                if ($ppi->ppiSpi && $ppi->ppiSpi->warehouse) {
+                    $warehouseName = $ppi->ppiSpi->warehouse->name;
+                }
+
+                // For now, use warehouse as supplier (you can extend this later)
+                $ppiList[] = [
+                    'ppi_id' => $ppi->ppi_id,
+                    'product_id' => $ppi->product_id,
+                    'supplier' => $warehouseName,  // Using warehouse name as supplier
+                    'warehouse' => $warehouseName,
+                    'stock_in_hand' => $ppi->quantity_in_stock ?? 0,
+                    'product_state' => $ppi->product_state ?? 'New',
+                    'health_status' => $ppi->health_status ?? 'Useable',
+                    'unit_price' => floatval($ppi->unit_price ?? 0),
+                    'ppi_spi_id' => $ppi->ppi_spi_id,
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'ppis' => $ppiList,
+                'product' => [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'unit' => $product->unit ?? 'pcs',
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('getPpiListForProduct Error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
 
     public function lendedProductsForSpi(Request $request)
     {
@@ -350,7 +422,118 @@ class SpiController extends SingleWarehouseController
             ->get();
 
         return view('admin.pages.warehouse.single.spi.spi-lended')->with(['spis' => $spis]);
-
     }
 
+    /**
+     * Get all products for a specific SPI - returns JSON
+     */
+    public function getSpiProducts($wh_code, $spi_id)
+    {
+        try {
+            $spi = $this->model::findOrFail($spi_id);
+            $getSpiProduct = $spi->spiProducts()
+                ->with('product')
+                ->get();
+
+            // Get helper instances
+            $Model = app('App\Helpers\Component');
+            $warehouse_code = $wh_code;
+
+            // Render table rows HTML
+            $html = '';
+            foreach ($getSpiProduct as $product) {
+                // Skip set products
+                $checkProductIsSet = $Model('PpiSetProduct')::getSet($product->id);
+                if(count($checkProductIsSet) > 0) continue;
+
+                $html .= '<tr class="pr_row_' . $product->id . '" data-product-id="' . $product->id . '">';
+                
+                // Edit & Delete Buttons
+                $html .= '<td>';
+                $html .= '<a title="Edit" class="edit text-info font-14" href="javascript:void(0)" data-product-id="' . $product->id . '">';
+                $html .= '<span class="fas fa-edit"></span>';
+                $html .= '</a>';
+                $html .= '&nbsp;';
+                $html .= '<a title="Delete" class="delete text-danger font-14" href="javascript:void(0)" data-product-id="' . $product->id . '">';
+                $html .= '<span class="fas fa-trash"></span>';
+                $html .= '</a>';
+                $html .= '</td>';
+                
+                // Correction column (empty)
+                $html .= '<td class="not_print"></td>';
+                
+                // Product Name
+                $html .= '<td class="product"><strong>' . ($product->product_name ?? 'N/A') . '</strong></td>';
+                
+                // QTY Input
+                $html .= '<td class="qty p-1">';
+                $html .= '<input type="number" class="form-control form-control-sm qty-input" value="' . $product->qty . '" min="1" data-old-value="' . $product->qty . '" data-product-id="' . $product->id . '">';
+                $html .= '</td>';
+                
+                // Unit
+                $html .= '<td class="unit">';
+                if($product->product_state == 'Cut-Piece') {
+                    $html .= 'Bundle';
+                } else {
+                    $unit = $Model('AttributeValue')::getValueById($product->product_unit_id);
+                    $html .= $unit ?? 'pcs';
+                }
+                $html .= '</td>';
+                
+                // Price Input
+                $html .= '<td class="price p-1 ppi_product_price_show">';
+                $html .= '<input type="number" class="form-control form-control-sm unit-price-input" value="' . $product->unit_price . '" step="0.01" min="0" data-old-value="' . $product->unit_price . '" data-product-id="' . $product->id . '">';
+                $html .= '</td>';
+                
+                // Product State
+                $productState = $Model('PpiProduct')::ppiProductInfoByPpiProductId($product->ppi_product_id, ['column' => 'product_state']);
+                $html .= '<td class="ppi-info-col">' . ($productState ?? '') . '</td>';
+                
+                // Health Status
+                $healthStatus = $Model('PpiProduct')::ppiProductInfoByPpiProductId($product->ppi_product_id, ['column' => 'health_status']);
+                $html .= '<td class="ppi-info-col">' . ($healthStatus ?? '') . '</td>';
+                
+                // Barcode Format
+                $html .= '<td class="not_print ppi-info-col">' . ($product->barcode_format ?? '') . '</td>';
+                
+                // Notes Input
+                $html .= '<td class="note p-1 not_print">';
+                $html .= '<input type="text" class="form-control form-control-sm notes-input" placeholder="Notes" value="' . ($product->note ?? '') . '" data-old-value="' . ($product->note ?? '') . '" data-product-id="' . $product->id . '">';
+                $html .= '</td>';
+                
+                // From Warehouse
+                $html .= '<td class="ppi-info-col">';
+                $html .= ($product->from_warehouse != $product->warehouse_id) ? 'Lended' : 'Regular';
+                $html .= '<br>From ' . $Model('Warehouse')::name($product->from_warehouse);
+                $html .= '</td>';
+                
+                // Dispute Note
+                $html .= '<td class="not_print"></td>';
+                
+                // Physical Validation
+                $html .= '<td class="text-center not_print"></td>';
+                
+                // Save Button
+                $html .= '<td class="not_print text-center">';
+                $html .= '<a title="Save" class="save text-success font-14" href="javascript:void(0)" data-product-id="' . $product->id . '" style="display: none;">';
+                $html .= '<span class="fas fa-save"></span>';
+                $html .= '</a>';
+                $html .= '</td>';
+                
+                $html .= '</tr>';
+            }
+
+            return response()->json([
+                'success' => true,
+                'html' => $html
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('getSpiProducts error: ' . $e->getMessage());
+            \Log::error('Stack: ' . $e->getTraceAsString());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

@@ -31,6 +31,10 @@ class PpiSpi extends Model
     public function spiProducts() {
         return $this->hasMany('\App\Models\SpiProduct', 'spi_id', 'id');
     }
+
+    public function warehouse() {
+        return $this->belongsTo('\App\Models\Warehouse', 'warehouse_id', 'id');
+    }
   
   
   

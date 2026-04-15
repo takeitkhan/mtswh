@@ -44,20 +44,20 @@ Route::group([
 
     /** RouteList */
     Route::group(['prefix' => 'superadmin'], function () {
-        require_once 'modules/superadmin.php';
+        require __DIR__.'/modules/superadmin.php';
     });
 
     /** Warehouse  */
-    require_once 'modules/warehouse.php';
+    require __DIR__.'/modules/warehouse.php';
 
     /**Project Route */
-    require_once 'modules/project.php';
+    require __DIR__.'/modules/project.php';
     /**Contact Route */
-    require_once 'modules/contact.php';
+    require __DIR__.'/modules/contact.php';
     /** Attibute Route */
-    require_once 'modules/attribute.php';
+    require __DIR__.'/modules/attribute.php';
     /** Pdfs Route */
-    require_once 'modules/pdfs.php';
+    require __DIR__.'/modules/pdfs.php';
 });
 
 Route::get('barcode_print_test', function () {

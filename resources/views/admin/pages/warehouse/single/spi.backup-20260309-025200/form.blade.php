@@ -230,30 +230,79 @@
                     </div>
                 </form>
                 @if(!empty($spi->id))
-                <!-- New Inline Product Management Section -->
-                <div class="mt-4 not_print">
-                    @if(auth()->user()->hasRoutePermission('spi_product_add'))
-                        <!-- Product Add Section -->
-                        @include('admin.pages.warehouse.single.spi.form.product-add-section')
-
-                        <!-- PPI List Section -->
-                        @include('admin.pages.warehouse.single.spi.form.ppi-list-section')
-                    @endif
-
-                    <!-- Import Product Button -->
-                    @if(auth()->user()->hasRoutePermission('spi_product_import_from_another_spi'))
-                        <div class="mt-4">
-                            <button title="Import Product from another SPI"
-                                    type="button"
-                                    class="btn btn-outline-primary d-flex justify-content-between align-items-center gap-2"
-                                    style="width: fit-content; padding: 0.5rem 1rem;"
-                                    id="importProductFromSpi">
-                                <span>Import Product from Another SPI</span>
-                                <i class="fa fa-file-import" style="font-size: 0.9rem;"></i>
+                <!-- ENd product Modal Row -->
+                <div class="mt-3 row not_print">
+                    <h6>
+                        <div class="title-with-border text-center">
+                            <span class="done_this_action">
+                                @if(auth()->user()->hasRoutePermission('spi_product_add'))
+                                <button title="Add Product to SPI" type="button"
+                                        class="py-0 rounded-circle btn-outline-teal btn btn-lg"
+                                        style=" height: 50px;" data-bs-toggle="modal" data-bs-target="#spiProductModal">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                                @endif
+                                @if(auth()->user()->hasRoutePermission('spi_product_import_from_another_spi'))
+                                    <button title="Import Product from another SPI"
+                                            type="button"
+                                            class="py-0 rounded-circle btn-outline-primary btn btn-lg"
+                                            style=" height: 50px;"
+                                            id="importProductFromSpi">
+                                        <i class="fa fa-file-import"></i>
+                                    </button>
+                                @endif
+                            </span>
+                            <button title="Ppi Data Print" type="button"
+                                    class="py-0 rounded-circle btn-outline-orange btn btn-lg ppi_print_data not_print"
+                                    style=" height: 50px;"
+                                    id="">
+                                <i class="fa fa-print"></i>
                             </button>
                         </div>
-                    @endif
-                </div><!-- ENd Product Management Section -->
+                    </h6>
+
+
+                    <!-- Product Modal -->
+                    @php
+                        if(isset($spiEditProduct)){
+                            $spiProductRouteUrl = route('spi_product_update', $warehouse_code);
+                        }else{
+                            $spiProductRouteUrl = route('spi_product_store', $warehouse_code);
+                        }
+                    @endphp
+                    <form action="{{$spiProductRouteUrl}}" method="post">
+                        @csrf
+                        <input type="hidden" name="spi_id" value="{{$spi->id}}">
+                        @if(isset($spiEditProduct))
+                            <input type="hidden" name="spi_product_id" value="{{$spiEditProduct->id}}">
+                        @endif
+                        <div class="modal fade" id="spiProductModal" xtabindex="-1" aria-labelledby="spiProductModalLabel" aria-hidden="true">
+                            <div class="modal-dialog modal-fullscreen modal-dialog-centered">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="spiProductModalLabel">SPI Product information</h5>
+                                        @if(isset($spiEditProduct))
+                                        @else
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        @endif
+                                    </div>
+                                    <div class="modal-body">
+                                        @include('admin.pages.warehouse.single.spi.form.product-modal')
+                                    </div>
+                                    <div class="d-inline-block modal-footer">
+                                        @if(isset($spiEditProduct))
+                                            <a href="{{route('spi_edit', [$warehouse_code, $spi->id])}}" class="float-end btn btn-sm btn-secondary">Cancel</a>
+                                        @else
+                                            <div class="d-inline-block" id="add_btn"></div>
+                                            <button type="button" class="float-end btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+                                        @endif
+                                        <button type="submit" class="float-end btn btn-sm btn-primary">Save changes</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div> <!-- ENd Modal -->
+                    </form>
+                </div><!-- ENd product Modal Row -->
 
                 @php
                     global $setProductValidationComplete;
@@ -449,7 +498,7 @@
 
 
 
-    <link rel="stylesheet" href="{{ $publicDir }}/assets/css/bootstrap.min.css"  media="print">
+    <link rel="stylesheet" href="{{ $publicDir }}/assets/css/bootstrap.min.cssx"  media="print">
     <link rel="stylesheet" href="{{ $publicDir }}/assets/css/form.css"  media="print">
     <link rel="stylesheet" href="{{ $publicDir }}/assets/css/blue.css"  media="print">
     <link rel="stylesheet" href="{{ $publicDir }}/assets/css/style.css"  media="print">
@@ -524,6 +573,5 @@
         <script>
             $('#spi_content .spiProductEditBtn').remove();
         </script>
-        @include('admin.pages.warehouse.single.spi.form.product-management-script')
     @endsection
 @endif
