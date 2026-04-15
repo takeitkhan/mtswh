@@ -34,21 +34,93 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const productSelect = document.getElementById('spiProductSelect');
+    // Initialize Select2 for product select
+    $('#spiProductSelect').select2({
+        placeholder: "Select a Product",
+        width: '100%',
+        allowClear: true
+    });
 
-    // When product is selected, trigger event to show PPI list
-    productSelect.addEventListener('change', function() {
-        if (this.value) {
+    const productSelect = document.getElementById('spiProductSelect');
+    const spiId = document.getElementById('spiIdInput')?.value;
+
+    // When product is selected via Select2
+    $('#spiProductSelect').on('change', function() {
+        const productId = this.value;
+        
+        if (productId) {
             const productName = this.options[this.selectedIndex].text;
             
-            // Dispatch custom event to show PPI list section
-            const event = new CustomEvent('productSelected', {
-                detail: {
-                    productId: this.value,
-                    productName: productName
+            // Show loading state
+            const ppiListSection = document.querySelector('[data-ppi-list-section]');
+            const ppiListLoading = document.getElementById('ppiListLoading');
+            const ppiListBody = document.getElementById('ppiListBody');
+            const ppiListEmpty = document.getElementById('ppiListEmpty');
+
+            if (ppiListSection) {
+                ppiListSection.style.display = 'block';
+            }
+            if (ppiListLoading) {
+                ppiListLoading.style.display = 'block';
+            }
+            if (ppiListEmpty) {
+                ppiListEmpty.style.display = 'none';
+            }
+            if (ppiListBody) {
+                ppiListBody.innerHTML = '';
+            }
+
+            // Update the product name in PPI list section
+            const productNameSpan = document.getElementById('selectedProductName');
+            if (productNameSpan) {
+                productNameSpan.textContent = productName;
+            }
+
+            // Fetch PPIs for this product via AJAX
+            fetch(`{{ route('spi_get_ppi_list_for_product', $warehouse_code) }}?product_id=${productId}&spi_id=${spiId}`, {
+                method: 'GET',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (ppiListLoading) {
+                    ppiListLoading.style.display = 'none';
+                }
+
+                if (data.success && data.ppis && data.ppis.length > 0) {
+                    // Dispatch event to render PPI list
+                    window.dispatchEvent(new CustomEvent('renderPpiList', {
+                        detail: { ppis: data.ppis }
+                    }));
+                    if (ppiListEmpty) {
+                        ppiListEmpty.style.display = 'none';
+                    }
+                } else {
+                    if (ppiListEmpty) {
+                        ppiListEmpty.style.display = 'block';
+                    }
+                    if (ppiListBody) {
+                        ppiListBody.innerHTML = '';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                if (ppiListLoading) {
+                    ppiListLoading.style.display = 'none';
+                }
+                if (ppiListEmpty) {
+                    ppiListEmpty.style.display = 'block';
                 }
             });
-            window.dispatchEvent(event);
+        } else {
+            // Clear PPI list when product is deselected
+            const ppiListSection = document.querySelector('[data-ppi-list-section]');
+            if (ppiListSection) {
+                ppiListSection.style.display = 'none';
+            }
         }
     });
 });

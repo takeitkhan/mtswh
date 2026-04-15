@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Listen for product selection from product-add-section
+    // Listen for product selection from product-add-section (old method)
     window.addEventListener('productSelected', function(e) {
         const productId = e.detail.productId;
         const productName = e.detail.productName;
@@ -126,6 +126,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (ppiListSection) {
             ppiListSection.style.display = 'block';
         }
+    });
+
+    // Listen for renderPpiList event from Select2 in product-add-section (new method)
+    window.addEventListener('renderPpiList', function(e) {
+        const ppis = e.detail.ppis;
+        renderPpiList(ppis);
     });
 
     // Back to product selection
