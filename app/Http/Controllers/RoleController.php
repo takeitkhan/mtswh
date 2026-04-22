@@ -71,38 +71,45 @@ class RoleController extends Controller
 
     public function edit($id)
     {   
-        $role = $this->model::find($id);
+        $role = $this->model::find($id);        
         return view('admin.pages.roles.form', ['role' => $role]);
     }
 
 
     public function update(Request $request)
     {
-        //dd($request->all());
-        $attributes = [
-            'name' => $request->name,
-            'code' => strtolower(str_replace(' ', '_', $request->name)),
-            'type' => $request->type,
-        ];
-        $role = $this->model::where('id', $request->id)->update($attributes);
-
-        //Routelist Role
-        $getRouteRole = Routelistrole::where('role_id', $request->id)->delete();
-        if(!empty($request->route_id)){
-            foreach($request->route_id as $key => $route){
-                $data = new Routelistrole();
-                $data->role_id = $request->id;
-                $data->route_id = $route;
-                $data->show_as = $request->show_as[$route] ?? NULL;
-                $data->save();
-            }
-        }
-        
-
+        DB::beginTransaction();
         try {
+            $attributes = [
+                'name' => $request->name,
+                'code' => strtolower(str_replace(' ', '_', $request->name)),
+                'type' => $request->type,
+            ];
+            $role = $this->model::where('id', $request->id)->update($attributes);
+
+            //Routelist Role - Delete all existing permissions first
+            Routelistrole::where('role_id', $request->id)->delete();
+            
+            // Only add back the checked permissions
+            if(!empty($request->route_id)){
+                foreach($request->route_id as $key => $route){
+                    $data = new Routelistrole();
+                    $data->role_id = $request->id;
+                    $data->route_id = $route;
+                    $data->show_as = $request->show_as[$route] ?? NULL;
+                    $data->save();
+                }
+            }
+
+            DB::commit();
             return redirect()->back()->with(['status' => 1, 'message' => 'Successfully updated']);
         } catch (\Exception $e) {
-            return redirect()->back()->with(['status' => 0, 'message' => 'Error']);
+            DB::rollBack();
+            \Log::error('Role Update Error: ' . $e->getMessage(), [
+                'role_id' => $request->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return redirect()->back()->with(['status' => 0, 'message' => 'Error: ' . $e->getMessage()]);
         }
     }
 

@@ -15,7 +15,7 @@
     <div class="title-with-border">Status Handler</div>
 </h6>
 
-<form action="{{route('translate_store_or_update')}}" method="post">
+<form action="{{route('translate_store_or_update')}}" method="post" id="translateForm">
         @csrf
     <div class="row">
         <div class="col-md-5">
@@ -51,7 +51,7 @@
 
         <div class="col-md-12">
             <div class="form-submit_btn">
-                <button type="submit" class="btn blue">Submit</button>
+                <button type="submit" class="btn blue" id="translateFormSubmitBtn">Submit Status Handler</button>
             </div>
         </div>
     </div>
