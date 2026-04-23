@@ -114,6 +114,12 @@ class PpiController extends SingleWarehouseController
      */
     public function edit($wh_code, $id)
     {
+        // Status-based lock: once submitted, the creator (Subordinate Manager)
+        // can only view, not edit.
+        if (PpiSpiHelper::isLockedForCreator($id, 'Ppi')) {
+            return redirect()->route('ppi_index', [$wh_code])
+                ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Ppi')]);
+        }
         $ppi = $this->model::find($id);
         return view('admin.pages.warehouse.single.ppi.form', ['ppi' => $ppi]);
     }
@@ -126,6 +132,12 @@ class PpiController extends SingleWarehouseController
      */
     public function update(Request $request)
     {
+        $ppiId = $request->ppi_id ?? $request->id;
+        // Block writes from the creator once PPI has moved past their stage.
+        if (PpiSpiHelper::isLockedForCreator($ppiId, 'Ppi')) {
+            return redirect()->back()
+                ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Ppi')]);
+        }
         dd($request->all());
     }
 
@@ -138,6 +150,10 @@ class PpiController extends SingleWarehouseController
      */
     public function destroy($wh_code, $id)
     {
+        if (PpiSpiHelper::isLockedForCreator($id, 'Ppi')) {
+            return redirect()->back()
+                ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Ppi')]);
+        }
         $data = $this->model::find($id);
         $done = $data->delete();
         if ($done) {
@@ -224,12 +240,13 @@ class PpiController extends SingleWarehouseController
                         ]);
                 $ppiLastStatus = $getTranslateText ?? $ppiLastSts->message;
                 $checkSentToBoss = $thiss->Model("PpiSpiStatus")::checkPpiStatus($data->id, "ppi_sent_to_boss");
+                $isLocked = \App\Helpers\Warehouse\PpiSpiHelper::isLockedForCreator($data->id, "Ppi");
                 $getWarehouseCode = $thiss->Model("Warehouse")::getColumn($data->warehouse_id, "code");
         ';
         /** Filed Show for loop */
         $fields = [
-            'button' => '(($checkSentToBoss && auth()->user()->checkUserRoleTypeGeneral()) ? null : $this->ButtonSet::delete("ppi_destroy", [$getWarehouseCode, $data->id]))
-                           .$this->ButtonSet::edit("ppi_edit", [$getWarehouseCode, $data->id])',
+            'button' => '($isLocked ? null : $this->ButtonSet::delete("ppi_destroy", [$getWarehouseCode, $data->id]))
+                           .($isLocked ? null : $this->ButtonSet::edit("ppi_edit", [$getWarehouseCode, $data->id]))',
             'id' => '$data->id',
             'ppi_type' => '"<span class=\"$checkDisputes\">".$data->ppi_spi_type."</span>"',
             'project' => '$data->project',

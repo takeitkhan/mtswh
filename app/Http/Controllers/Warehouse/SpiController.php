@@ -113,6 +113,10 @@ class SpiController extends SingleWarehouseController
      */
     public function edit($wh_code, $id)
     {
+        if (PpiSpiHelper::isLockedForCreator($id, 'Spi')) {
+            return redirect()->route('spi_index', [$wh_code])
+                ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Spi')]);
+        }
         $spi = $this->model::find($id);
         return view('admin.pages.warehouse.single.spi.form', ['spi' => $spi]);
     }
@@ -125,6 +129,11 @@ class SpiController extends SingleWarehouseController
      */
     public function update(Request $request)
     {
+        $spiId = $request->spi_id ?? $request->id;
+        if (PpiSpiHelper::isLockedForCreator($spiId, 'Spi')) {
+            return redirect()->back()
+                ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Spi')]);
+        }
         dd($request->all());
     }
 
@@ -137,6 +146,10 @@ class SpiController extends SingleWarehouseController
      */
     public function destroy($wh_code, $id)
     {
+        if (PpiSpiHelper::isLockedForCreator($id, 'Spi')) {
+            return redirect()->back()
+                ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Spi')]);
+        }
         $data = $this->model::find($id);
         $done = $data->delete();
         if ($done) {
@@ -268,12 +281,13 @@ class SpiController extends SingleWarehouseController
                         ]);
                 $spiLastStatus = $getTranslateText ?? $spiLastSts->message;
                 $checkSentToBoss = $thiss->Model("PpiSpiStatus")::checkSpiStatus($data->id, "spi_sent_to_boss");
+                $isLocked = \App\Helpers\Warehouse\PpiSpiHelper::isLockedForCreator($data->id, "Spi");
                 $getWarehouseCode = $thiss->Model("Warehouse")::getColumn($data->warehouse_id, "code");
         ';
         /** Filed Show for loop */
         $fields = [
-            'button' => '(($checkSentToBoss && auth()->user()->checkUserRoleTypeGeneral()) ? null : $this->ButtonSet::delete("spi_destroy", [$getWarehouseCode, $data->id]))
-            .$this->ButtonSet::edit("spi_edit", [$getWarehouseCode, $data->id])',
+            'button' => '($isLocked ? null : $this->ButtonSet::delete("spi_destroy", [$getWarehouseCode, $data->id]))
+            .($isLocked ? null : $this->ButtonSet::edit("spi_edit", [$getWarehouseCode, $data->id]))',
             'id' => '$data->id',
             'spi_type' => '"<span class=\"$checkDisputes\">".$data->ppi_spi_type."</span>"',
             'project' => '$data->project',
@@ -374,14 +388,33 @@ class SpiController extends SingleWarehouseController
                 ->orderBy('unit_price', 'asc')
                 ->get();
 
+            // Pending SPI allocations (not yet released from stock) per ppi_product_id
+            $ppiIds = $ppis->pluck('ppi_id')->all();
+            $pendingByPpi = [];
+            if (!empty($ppiIds)) {
+                $pending = DB::table('spi_products')
+                    ->join('temporary_stocks', function ($j) {
+                        $j->on('temporary_stocks.spi_product_id', '=', 'spi_products.id')
+                          ->where('temporary_stocks.action_format', '=', 'Spi');
+                    })
+                    ->whereIn('spi_products.ppi_product_id', $ppiIds)
+                    ->groupBy('spi_products.ppi_product_id')
+                    ->selectRaw('spi_products.ppi_product_id, SUM(temporary_stocks.waiting_stock_out) as pending_qty')
+                    ->pluck('pending_qty', 'ppi_product_id');
+                $pendingByPpi = $pending->toArray();
+            }
+
             $ppiList = [];
             foreach ($ppis as $ppi) {
                 $warehouseName = 'N/A';
                 $ppiWarehouseId = $ppi->warehouse_id;
-                
+
                 if ($ppi->ppiSpi && $ppi->ppiSpi->warehouse) {
                     $warehouseName = $ppi->ppiSpi->warehouse->name;
                 }
+
+                $pendingQty = (float) ($pendingByPpi[$ppi->ppi_id] ?? 0);
+                $stockInHand = max(0, (float) ($ppi->quantity_in_stock ?? 0) - $pendingQty);
 
                 // For now, use warehouse as supplier (you can extend this later)
                 $ppiList[] = [
@@ -389,7 +422,7 @@ class SpiController extends SingleWarehouseController
                     'product_id' => $ppi->product_id,
                     'supplier' => $warehouseName,  // Using warehouse name as supplier
                     'warehouse' => $warehouseName,
-                    'stock_in_hand' => $ppi->quantity_in_stock ?? 0,
+                    'stock_in_hand' => $stockInHand,
                     'product_state' => $ppi->product_state ?? 'New',
                     'health_status' => $ppi->health_status ?? 'Useable',
                     'unit_price' => floatval($ppi->unit_price ?? 0),

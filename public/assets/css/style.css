@@ -3,7 +3,9 @@
     src: url(../webfonts/LucidaGrande.ttf);
 }
 
-
+.cnt-right-top_header > div.row > div {
+  padding-left: 30px;
+}
 
 /* default css */
 /** {*/

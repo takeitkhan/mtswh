@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use App\Models\TemporaryStock;
+use App\Helpers\Warehouse\PpiSpiHelper;
 /**
  * @Annotation
  */
@@ -47,6 +48,12 @@ class SpiProductController extends SingleWarehouseController
 
     public function store(Request $request)
     {
+        if (PpiSpiHelper::isLockedForCreator($request->spi_id, 'Spi')) {
+            return response()->json([
+                'success' => false,
+                'message' => PpiSpiHelper::lockMessage('Spi')
+            ], 403);
+        }
         try {
             //dd($request->all());
             $products = $request->product;
@@ -284,6 +291,10 @@ class SpiProductController extends SingleWarehouseController
      */
     public function edit($wh_code, $id){
         $spiEditProduct = $this->model::find($id);
+        if ($spiEditProduct && PpiSpiHelper::isLockedForCreator($spiEditProduct->spi_id, 'Spi')) {
+            return redirect()->route('spi_index', [$wh_code])
+                ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Spi')]);
+        }
 //        $spiEditProductBundle = spiBundleProduct::where('ppi_product_id', $id)->get();
         $spiEditProductBundle = null;
         $spi = PpiSpi::find($spiEditProduct->spi_id);
@@ -306,7 +317,14 @@ class SpiProductController extends SingleWarehouseController
 
             // Find and update the product
             $spiProduct = $this->model::findOrFail($spi_product_id);
-            
+
+            if (PpiSpiHelper::isLockedForCreator($spiProduct->spi_id, 'Spi')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => PpiSpiHelper::lockMessage('Spi')
+                ], 403);
+            }
+
             $spiProduct->update([
                 'qty' => $qty,
                 'unit_price' => $unit_price,
@@ -338,6 +356,10 @@ class SpiProductController extends SingleWarehouseController
 //        dd($id);
 
         $data = $this->model::find($id);
+        if ($data && PpiSpiHelper::isLockedForCreator($data->spi_id, 'Spi')) {
+            return redirect()->back()
+                ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Spi')]);
+        }
 //        dd($data->spi_id);
         $productName = $this->Model('Product')::name($data->product_id);
 //        dd($productName);

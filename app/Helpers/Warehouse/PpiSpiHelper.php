@@ -1,8 +1,105 @@
 <?php
 
 namespace App\Helpers\Warehouse;
+
+use App\Models\PpiSpi;
+use App\Models\PpiSpiStatus;
+
 class PpiSpiHelper
 {
+    /**
+     * Status codes after which the original creator (Subordinate Manager / General role)
+     * should NOT be allowed to edit/delete the PPI or its products.
+     *
+     * Once any of these status codes is reached, the record is considered "locked"
+     * from the creator's perspective. Boss / Warehouse Manager / Global admins
+     * still work through their dedicated action routes (correction_by_boss etc.).
+     */
+    public static function ppiCreatorLockStatuses()
+    {
+        return [
+            'ppi_sent_to_boss',
+            'ppi_sent_to_wh_manager',
+            'ppi_resent_to_wh_manager',
+            'ppi_ready_to_physical_validation',
+            'ppi_dispute_by_wh_manager',
+            'ppi_agreed_no_dispute',
+            'ppi_agreed_no_existing',
+            'ppi_existing_product_added_to_stock',
+            'ppi_barcode_print_done',
+            'ppi_new_product_added_to_stock',
+            'ppi_challan_pdf_printed',
+            'ppi_all_steps_complete',
+        ];
+    }
+
+    public static function spiCreatorLockStatuses()
+    {
+        return [
+            'spi_sent_to_boss',
+            'spi_sent_to_wh_manager',
+            'spi_resent_to_wh_manager',
+            'spi_ready_to_physical_validation',
+            'spi_dispute_by_wh_manager',
+            'spi_all_steps_complete',
+        ];
+    }
+
+    /**
+     * Check if a PPI/SPI is locked for the original creator (Subordinate Manager).
+     * Returns true when:
+     *  - the record's last status is one of the creator-lock statuses, AND
+     *  - the currently authenticated user holds a General role (i.e. a subordinate),
+     *    NOT a Global admin (Boss/WH Manager flows have their own action routes).
+     *
+     * Global admins are never locked out by this helper.
+     *
+     * @param int|string $ppiSpiId
+     * @param string     $actionFormat 'Ppi' or 'Spi'
+     * @return bool
+     */
+    public static function isLockedForCreator($ppiSpiId, $actionFormat = 'Ppi')
+    {
+        if (empty($ppiSpiId)) {
+            return false;
+        }
+        $user = auth()->user();
+        if (empty($user)) {
+            return false;
+        }
+        // Global admins bypass this creator-level lock.
+        if (method_exists($user, 'checkUserRoleTypeGlobal') && $user->checkUserRoleTypeGlobal()) {
+            return false;
+        }
+        // Only enforce for General-role users (Subordinate Managers).
+        if (method_exists($user, 'checkUserRoleTypeGeneral') && !$user->checkUserRoleTypeGeneral()) {
+            return false;
+        }
+
+        $lockStatuses = $actionFormat === 'Spi'
+            ? self::spiCreatorLockStatuses()
+            : self::ppiCreatorLockStatuses();
+
+        $last = PpiSpiStatus::where('ppi_spi_id', $ppiSpiId)
+            ->where('status_for', $actionFormat)
+            ->where('status_format', 'Main')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if (empty($last)) {
+            return false;
+        }
+        return in_array($last->code, $lockStatuses, true);
+    }
+
+    /**
+     * Human readable message shown when a write is blocked by the creator lock.
+     */
+    public static function lockMessage($actionFormat = 'Ppi')
+    {
+        $label = $actionFormat === 'Spi' ? 'SPI' : 'PPI';
+        return "This {$label} has already been submitted and is read-only for you. Please contact the Boss for any correction request.";
+    }
 
     public static function ppiStatusHandler()
     {

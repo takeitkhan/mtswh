@@ -9,13 +9,12 @@
     <div class="card-body">
         <!-- PPI List Table -->
         <div class="table-responsive">
-            <table class="table table-hover table-sm" id="ppiListTable">
+            <table class="table table-hover table-sm" id="ppiListTable" style="font-size: 12px;">
                 <thead class="table-light">
                     <tr>
                         <th style="width: 40px;"><input type="checkbox" id="selectAllPpis" title="Select/Deselect all PPIs"></th>
                         <th>PPI ID</th>
-                        <th>Supplier</th>
-                        <th>Warehouse</th>
+                        <th>Warehouse/Supplier</th>
                         <th>Stock in Hand</th>
                         <th>Product State</th>
                         <th>Health Status</th>
@@ -207,8 +206,7 @@ document.addEventListener('DOMContentLoaded', function() {
             row.innerHTML = `
                 <td style="width: 40px;"><input type="checkbox" class="ppi-select-checkbox" data-ppi-id="${ppi.ppi_id}" data-product-id="${ppi.product_id}" data-index="${index}"></td>
                 <td><strong>${ppi.ppi_id}</strong></td>
-                <td>${ppi.supplier || 'N/A'}</td>
-                <td><span class="badge bg-success">${ppi.warehouse || 'N/A'}</span></td>
+                <td><span class="badge bg-success">${ppi.warehouse || 'N/A'}</span><br>${ppi.supplier || 'N/A'}</td>
                 <td>${ppi.stock_in_hand || 0}</td>
                 <td>${ppi.product_state || 'New'}</td>
                 <td>${ppi.health_status || 'Useable'}</td>
@@ -224,8 +222,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     <input type="text" class="form-control form-control-sm ppi-notes" placeholder="Notes" data-index="${index}">
                 </td>
                 <td>
-                    <button type="button" class="btn btn-sm btn-primary add-from-ppi" data-ppi-id="${ppi.ppi_id}" data-product-id="${ppi.product_id}" data-index="${index}">
-                        <i class="fas fa-plus"></i> Add
+                    <button type="button" class="btn btn-sm btn-success add-from-ppi" data-ppi-id="${ppi.ppi_id}" data-product-id="${ppi.product_id}" data-index="${index}">
+                        <i class="fas fa-plus"></i>
                     </button>
                 </td>
             `;
@@ -328,12 +326,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 // Reset
-                productSelect.value = '';
-                ppiListSection.style.display = 'none';
-                if (addProductBtn) {
-                    const addBtnContainer = addProductBtn.closest('.col-md-3');
-                    if (addBtnContainer) addBtnContainer.style.display = 'flex';
+                const productSelectEl = document.getElementById('spiProductSelect');
+                if (productSelectEl) {
+                    productSelectEl.value = '';
+                    if (window.jQuery) jQuery(productSelectEl).trigger('change');
                 }
+                const ppiListSectionEl = document.getElementById('spiPpiListSection');
+                if (ppiListSectionEl) ppiListSectionEl.style.display = 'none';
             } else {
                 showAlert(data.message || 'Failed to add product', 'danger');
             }

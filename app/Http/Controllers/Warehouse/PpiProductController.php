@@ -12,6 +12,7 @@ use App\Models\PpiBundleProduct;
 use App\Http\Controllers\Warehouse\PpiSpiStatusController;
 use Carbon\Carbon;
 use App\Models\TemporaryStock;
+use App\Helpers\Warehouse\PpiSpiHelper;
 
 class PpiProductController extends SingleWarehouseController
 {
@@ -46,6 +47,10 @@ class PpiProductController extends SingleWarehouseController
      * @return void
      */
     public function store(Request $request){
+        if (PpiSpiHelper::isLockedForCreator($request->ppi_id, 'Ppi')) {
+            return redirect()->back()
+                ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Ppi')]);
+        }
 //        dd($request->all());
 //        $attributes = [];
         $bundleSizes = [];
@@ -140,6 +145,10 @@ class PpiProductController extends SingleWarehouseController
      */
     public function edit($wh_code, $id){
         $ppiEditProduct = $this->model::find($id);
+        if ($ppiEditProduct && PpiSpiHelper::isLockedForCreator($ppiEditProduct->ppi_id, 'Ppi')) {
+            return redirect()->route('ppi_index', [$wh_code])
+                ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Ppi')]);
+        }
         $ppiEditProductBundle = PpiBundleProduct::where('ppi_product_id', $id)->get();
         $ppi = PpiSpi::find($ppiEditProduct->ppi_id);
         return view('admin.pages.warehouse.single.ppi.form', ['ppi' => $ppi, 'ppiEditProduct' => $ppiEditProduct, 'ppiEditProductBundle' => $ppiEditProductBundle]);
@@ -152,6 +161,10 @@ class PpiProductController extends SingleWarehouseController
      * @return void
      */
     public function update(Request $request){
+        if (PpiSpiHelper::isLockedForCreator($request->ppi_id, 'Ppi')) {
+            return redirect()->back()
+                ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Ppi')]);
+        }
 //         dd($request->all());
         $attributes = [];
         $done = null;
@@ -257,6 +270,10 @@ class PpiProductController extends SingleWarehouseController
         //dd('ok');
         //dd(PpiProduct::ppiProductInfoByPpiProductId($id, ['column' => 'product_name']));
         $data = $this->model::find($id);
+        if ($data && PpiSpiHelper::isLockedForCreator($data->ppi_id, 'Ppi')) {
+            return redirect()->back()
+                ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Ppi')]);
+        }
         $busketInfo = $this->ppi_spi_history->arrangePpiData($data->ppi_id);
         $productName = PpiProduct::ppiProductInfoByPpiProductId($id, ['column' => 'product_name']);
         $done = $data->delete();
@@ -312,6 +329,10 @@ class PpiProductController extends SingleWarehouseController
 //        dd($request->all());
         $fromPpiId = $request->from_ppi_id;
         $toPpiId = $request->to_ppi_id;
+        if (PpiSpiHelper::isLockedForCreator($toPpiId, 'Ppi')) {
+            return redirect()->back()
+                ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Ppi')]);
+        }
         $busketInfo = $this->ppi_spi_history->arrangePpiData($toPpiId);
 
         $fromPpiProduct = $this->model::where('ppi_id', $fromPpiId)->get()->toArray();
