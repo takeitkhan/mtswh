@@ -36,6 +36,7 @@
     <div class="content-wrapper" id="ppi_content" style="overflow: hidden;">
         <?php
         $warehouse_code = request()->get('warehouse_code');
+        $isReadOnly = $readonly ?? false;
         if (!empty($ppi)) {
             $routeUrl = route('ppi_update', $warehouse_code);
             $disabled = 'disabled';
@@ -47,7 +48,15 @@
         <div class="row">
             <div id="printJS-form" class="col-md-10 ppi_left_data" style="max-height: 87vh; overflow: scroll;">
 
-                <form action="{{$routeUrl}}" method="post">
+                <!-- Read-only Alert Message -->
+                @if($isReadOnly)
+                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                        <strong>Read-Only Mode:</strong> This PPI has been submitted and is in read-only mode for you. You can view all information but cannot make any changes. Please contact the Boss for any correction requests.
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                @endif
+
+                <form action="{{$routeUrl}}" method="post" @if($isReadOnly) onsubmit="return false;" @endif>
                     @csrf
                     @if(!empty($ppi))
                         <input type="hidden" name="id" value="{{$ppi->id}}">
@@ -217,7 +226,7 @@
                         <h6>
                             <div class="title-with-border text-center">
                                 <span class="done_this_action">
-                                    @if(auth()->user()->hasRoutePermission('ppi_product_add'))
+                                    @if(!$isReadOnly && auth()->user()->hasRoutePermission('ppi_product_add'))
                                         <button title="Add Product to PPI" type="button"
                                                 class="py-0 rounded-circle btn-outline-teal btn btn-lg"
                                                 style=" height: 50px;" data-bs-toggle="modal"
@@ -226,7 +235,7 @@
                                         </button>
                                     @endif
 
-                                    @if(auth()->user()->hasRoutePermission('ppi_product_import_from_another_ppi'))
+                                    @if(!$isReadOnly && auth()->user()->hasRoutePermission('ppi_product_import_from_another_ppi'))
                                         <button title="Import Product from another PPI" type="button"
                                                 class="py-0 rounded-circle btn-outline-primary btn btn-lg"
                                                 style=" height: 50px;"

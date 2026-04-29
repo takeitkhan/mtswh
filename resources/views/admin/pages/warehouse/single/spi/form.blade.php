@@ -37,9 +37,10 @@
     <div class="content-wrapper" id="spi_content" style="overflow: hidden;">
         <?php
         $warehouse_code = request()->get('warehouse_code');
+        $isReadOnly = $readonly ?? false;
         if (!empty($spi)) {
             $routeUrl = route('spi_update', $warehouse_code);
-            $disabled = 'disabled';
+            $disabled = $isReadOnly ? 'disabled' : 'disabled';
         } else {
             $routeUrl = route('spi_store', $warehouse_code);
             $disabled = '';
@@ -47,8 +48,15 @@
         ?>
         <div class="row">
             <div id="printJS-form" class="col-md-10" style="max-height: 87vh; overflow: scroll;">
+                <!-- Read-only Alert Message -->
+                @if($isReadOnly)
+                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                        <strong>Read-Only Mode:</strong> This SPI has been submitted and is in read-only mode for you. You can view all information but cannot make any changes. Please contact the Boss for any correction requests.
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                @endif
                 <!-- Spi Basic Info -->
-                <form action="{{$routeUrl}}" method="post">
+                <form action="{{$routeUrl}}" method="post" @if($isReadOnly) onsubmit="return false;" @endif>
                     @csrf
                     @if(!empty($spi))
                         <input type="hidden" name="id" value="{{$spi->id}}">
@@ -232,7 +240,7 @@
                 @if(!empty($spi->id))
                 <!-- New Inline Product Management Section -->
                 <div class="mt-4 not_print">
-                    @if(auth()->user()->hasRoutePermission('spi_product_add'))
+                    @if(!$isReadOnly && auth()->user()->hasRoutePermission('spi_product_add'))
                         <!-- Product Add Section -->
                         @include('admin.pages.warehouse.single.spi.form.product-add-section')
 
@@ -241,7 +249,7 @@
                     @endif
 
                     <!-- Import Product Button -->
-                    @if(auth()->user()->hasRoutePermission('spi_product_import_from_another_spi'))
+                    @if(!$isReadOnly && auth()->user()->hasRoutePermission('spi_product_import_from_another_spi'))
                         <div class="mt-4">
                             <button title="Import Product from another SPI"
                                     type="button"

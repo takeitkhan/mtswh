@@ -10,12 +10,17 @@
  * Route group Property
  * */
 
+$currentRouteName = Route::currentRouteName();
 
 if(request()->get('warehouse_code')){
     $homeLeftMenu = $NavMenu::showMenu('Left','Warehouse', request()->get('warehouse_code'));
-}else{
-
+} else if(strpos($currentRouteName, 'report_') === 0){
+    // If on Report route, show Report menu
+    $homeLeftMenu = $NavMenu::showMenu('Left','Report');
+} else {
+    $homeLeftMenu = [];
 }
+
 $homeLeftMenuGlobal = $NavMenu::showMenu('Left');
 $sideMenu = [
     $homeLeftMenuGlobal,

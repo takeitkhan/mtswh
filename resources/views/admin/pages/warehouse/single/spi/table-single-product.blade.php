@@ -18,13 +18,18 @@
         <tr class="pr_row_{{$product->id}} {{$product->any_warning_cls}}" data-product-id="{{ $product->id }}">
             <!-- Delete & Edit Buttons -->
             <td>
-                <a title="Edit" class="edit text-info font-14" href="javascript:void(0)" data-product-id="{{ $product->id }}">
-                    <span class="fas fa-edit"></span>
-                </a>
-                &nbsp;
-                <a title="Delete" class="delete text-danger font-14" href="javascript:void(0)" data-product-id="{{ $product->id }}">
-                    <span class="fas fa-trash"></span>
-                </a>
+                @php
+                    $isProductLocked = \App\Helpers\Warehouse\PpiSpiHelper::isLockedForCurrentUser($spi->id, 'Spi');
+                @endphp
+                @if(!$isProductLocked)
+                    <a title="Edit" class="edit text-info font-14" href="javascript:void(0)" data-product-id="{{ $product->id }}">
+                        <span class="fas fa-edit"></span>
+                    </a>
+                    &nbsp;
+                    <a title="Delete" class="delete text-danger font-14" href="javascript:void(0)" data-product-id="{{ $product->id }}">
+                        <span class="fas fa-trash"></span>
+                    </a>
+                @endif
             </td>
 
             @php
@@ -79,7 +84,7 @@
 
             <!-- Quantity (Editable) -->
             <td class="qty p-1 {{!empty($Model('PpiSpiDispute')::checkProductForDispute('Spi', $spi->id, $product->id, 'qty')) ? 'text-danger fw-bold' : '' }}">
-                <input type="number" class="form-control form-control-sm qty-input" value="{{ $product->qty }}" min="1" data-old-value="{{ $product->qty }}" data-product-id="{{ $product->id }}">
+                <input type="number" class="form-control form-control-sm qty-input" value="{{ $product->qty }}" min="1" data-old-value="{{ $product->qty }}" data-product-id="{{ $product->id }}" {{ $isProductLocked ? 'disabled' : '' }}>
             </td>
 
             <!-- Unit -->
@@ -93,7 +98,7 @@
 
             <!-- Price (Editable) -->
             <td class="price p-1 ppi_product_price_show {{!empty($Model('PpiSpiDispute')::checkProductForDispute('Spi', $spi->id, $product->id, 'price')) ? 'text-danger fw-bold' : '' }}">
-                <input type="number" class="form-control form-control-sm unit-price-input" value="{{ $product->unit_price }}" step="0.01" min="0" data-old-value="{{ $product->unit_price }}" data-product-id="{{ $product->id }}">
+                <input type="number" class="form-control form-control-sm unit-price-input" value="{{ $product->unit_price }}" step="0.01" min="0" data-old-value="{{ $product->unit_price }}" data-product-id="{{ $product->id }}" {{ $isProductLocked ? 'disabled' : '' }}>
             </td>
 
             <!-- Product State -->
@@ -107,7 +112,7 @@
 
             <!-- Notes (Editable) -->
             <td class="note p-1">
-                <input type="text" class="form-control form-control-sm notes-input" placeholder="Notes" value="{{ $product->note ?? '' }}" data-old-value="{{ $product->note ?? '' }}" data-product-id="{{ $product->id }}">
+                <input type="text" class="form-control form-control-sm notes-input" placeholder="Notes" value="{{ $product->note ?? '' }}" data-old-value="{{ $product->note ?? '' }}" data-product-id="{{ $product->id }}" {{ $isProductLocked ? 'disabled' : '' }}>
             </td>
 
             <!-- From Warehouse -->
@@ -138,7 +143,7 @@
                 @php
                     $checkStockOutThisProduct = false;
                 @endphp
-                @if(auth()->user()->hasRoutePermission('spi_get_line_item'))
+                @if(!$isProductLocked && auth()->user()->hasRoutePermission('spi_get_line_item'))
                     <?php if ($productState = $Model('PpiProduct')::ppiProductInfoByPpiProductId($product->ppi_product_id, ['column' => 'product_state'])) {
                         if ($productState == 'Cut-Piece') {
                             $bundleName = $product->bundle_id;

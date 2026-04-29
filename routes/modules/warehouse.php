@@ -12,36 +12,36 @@
 });
 
 Route::group(['key' => 'Report','prefix' => 'report', 'as' => 'report_', 'middleware' => ['auth', 'user']], function() {
-    Route::get('/product-stock', ['uses' => 'WarehouseController@productStock', 'title' => 'Product Stock', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left'])->name('product_stock');
+    Route::get('/product-stock', ['uses' => 'WarehouseController@productStock', 'title' => 'Product Stock', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left', 'show_for' => 'Report'])->name('product_stock');
     Route::get('/api/get-product-stock', ['uses' => 'WarehouseController@apiGetProductStock'])->name('api_get_product_stock');
-    Route::get('/product-stock/{product_id}', ['uses' => 'WarehouseController@productStock',  'title' => 'Product Stock Details'])->name('product_stock_details');
+    Route::get('/product-stock/{product_id}', ['uses' => 'WarehouseController@productStock',  'title' => 'Product Stock Details', 'show_for' => 'Report'])->name('product_stock_details');
 
     //Siite based Product PPI
-    Route::get('/ppi-site-based-product-report', ['uses' => 'WarehouseController@ppiSiteBasedProductReport', 'title' => 'Product Report Of Site (Ppi)', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left'])->name('ppi_site_based_product_report');
+    Route::get('/ppi-site-based-product-report', ['uses' => 'WarehouseController@ppiSiteBasedProductReport', 'title' => 'Product Report Of Site (Ppi)', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left', 'show_for' => 'Report'])->name('ppi_site_based_product_report');
     Route::get('/api/ppi-site-based-product-report', ['uses' => 'WarehouseController@apiGetPpiSiteBasedProductReport'])->name('api_get_ppi_site_based_product_report');
-    Route::get('/spi-site-based-product-report', ['uses' => 'WarehouseController@spiSiteBasedProductReport', 'title' => 'Product Report Of Site (Spi)', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left'])->name('spi_site_based_product_report');
-    Route::get('/ppi-product-to-spi/{ppi_product_id}', ['uses' => 'WarehouseController@ppiProductToSpi', 'title' => 'Ppi Product Use To Spi Product'])->name('ppi_product_to_spi');
+    Route::get('/spi-site-based-product-report', ['uses' => 'WarehouseController@spiSiteBasedProductReport', 'title' => 'Product Report Of Site (Spi)', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left', 'show_for' => 'Report'])->name('spi_site_based_product_report');
+    Route::get('/ppi-product-to-spi/{ppi_product_id}', ['uses' => 'WarehouseController@ppiProductToSpi', 'title' => 'Ppi Product Use To Spi Product', 'show_for' => 'Report'])->name('ppi_product_to_spi');
     
     
     // Accumulated Report
-    Route::get('/ppi-spi-accumulated', ['uses' => 'WarehouseController@ppiSpiAccumulated', 'title' => 'Ppi Spi Accumulated Report', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left'])->name('ppi_spi_accumulated_report');
+    Route::get('/ppi-spi-accumulated', ['uses' => 'WarehouseController@ppiSpiAccumulated', 'title' => 'Ppi Spi Accumulated Report', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left', 'show_for' => 'Report'])->name('ppi_spi_accumulated_report');
 
     //Vendor
-    Route::get('/vendor-report', ['uses' => 'WarehouseController@vendorReport', 'title' => 'Vendor Report', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left'])->name('vendor_report');
-    Route::get('/purchase-vendor-report', ['uses' => 'WarehouseController@purchaseVendorReport', 'title' => 'Purchase Vendor', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left'])->name('purchase_vendor_report');
+    Route::get('/vendor-report', ['uses' => 'WarehouseController@vendorReport', 'title' => 'Vendor Report', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left', 'show_for' => 'Report'])->name('vendor_report');
+    Route::get('/purchase-vendor-report', ['uses' => 'WarehouseController@purchaseVendorReport', 'title' => 'Purchase Vendor', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left', 'show_for' => 'Report'])->name('purchase_vendor_report');
     //scrapped
-    Route::get('/scrapped-product', ['uses' => 'WarehouseController@scrappedProduct', 'title' => 'Scrapped Product', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left'])->name('scrapped_product');
-    Route::get('/scrapped-product-details/{product_id}', ['uses' => 'WarehouseController@scrappedProductDetails', 'title' => 'Scrapped Product Details'])->name('scrapped_product_details');
+    Route::get('/scrapped-product', ['uses' => 'WarehouseController@scrappedProduct', 'title' => 'Scrapped Product', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left', 'show_for' => 'Report'])->name('scrapped_product');
+    Route::get('/scrapped-product-details/{product_id}', ['uses' => 'WarehouseController@scrappedProductDetails', 'title' => 'Scrapped Product Details', 'show_for' => 'Report'])->name('scrapped_product_details');
     Route::get('/api/get-scrapped-product', ['uses' => 'WarehouseController@apiGetScrappedProduct'])->name('api_get_scrapped_product');
 
     //Faulty
-    Route::get('/faulty-product', ['uses' => 'WarehouseController@faultyProduct', 'title' => 'Faulty Product', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left'])->name('faulty_product');
-    Route::get('/faulty-product-details/{product_id}', ['uses' => 'WarehouseController@faultyProductDetails', 'title' => 'Faulty Product Details'])->name('faulty_product_details');
+    Route::get('/faulty-product', ['uses' => 'WarehouseController@faultyProduct', 'title' => 'Faulty Product', 'show' => 'Yes', 'icon' => 'fas fa-th', 'position' => 'Top,Left', 'show_for' => 'Report'])->name('faulty_product');
+    Route::get('/faulty-product-details/{product_id}', ['uses' => 'WarehouseController@faultyProductDetails', 'title' => 'Faulty Product Details', 'show_for' => 'Report'])->name('faulty_product_details');
     Route::get('/api/get-faulty-product', ['uses' => 'WarehouseController@apiGetFaultyProduct'])->name('api_get_faulty_product');
 
     //Project lended Report
-    Route::any('lended-from-project', ['uses' => 'WarehouseController@lendedFromReport', 'title' => 'Product Lend Report of Project'])->name('lended_from_project');
-    Route::any('lended-from-project-start-return', ['uses' => 'WarehouseController@startlendProjectReturn', 'title' => 'Product Lend Return Permit of Project'])->name('lended_from_project_start_return');
+    Route::any('lended-from-project', ['uses' => 'WarehouseController@lendedFromReport', 'title' => 'Product Lend Report of Project', 'show_for' => 'Report'])->name('lended_from_project');
+    Route::any('lended-from-project-start-return', ['uses' => 'WarehouseController@startlendProjectReturn', 'title' => 'Product Lend Return Permit of Project', 'show_for' => 'Report'])->name('lended_from_project_start_return');
 });
 
 /** Single Warehouse */
@@ -54,8 +54,8 @@ Route::group(['prefix'=> '{wh_code?}','namespace' => 'Warehouse', 'show_for' => 
     Route::group(['key' => 'Product','prefix' => '/product', 'as' => 'product_'], function(){
 
         Route::get('/api/get', ['uses' => 'ProductController@apiGet'])->name('api_get');
-        Route::get('/manage/', ['uses' => 'ProductController@index', 'title' => 'Manage Products', 'show' => 'Yes', 'position' => 'Left'])->name('index');
-        Route::get('/create', ['uses' => 'ProductController@create', 'title' => 'Add Products', 'show' => 'Yes', 'position' => 'Left'])->name('create');
+        Route::get('/manage/', ['uses' => 'ProductController@index', 'title' => 'Manage Products', 'show' => 'Yes', 'position' => 'Left', 'show_for' => null])->name('index');
+        Route::get('/create', ['uses' => 'ProductController@create', 'title' => 'Add Products', 'show' => 'Yes', 'position' => 'Left', 'show_for' => null])->name('create');
         Route::post('/store', ['uses' => 'ProductController@store'])->name('store');
         Route::post('/excel-store', ['uses' => 'ProductController@uploadViaExcel'])->name('excel_store');
         Route::get('/edit/{id}', ['uses' => 'ProductController@edit', 'title' => 'Edit'])->name('edit');
@@ -64,7 +64,7 @@ Route::group(['prefix'=> '{wh_code?}','namespace' => 'Warehouse', 'show_for' => 
 
 
         /** Product Category */
-        Route::get('-category/manage/', ['uses' => 'ProductCategoryController@index', 'title' => 'Manage Categories','show' => 'Yes', 'position' => 'Left'])->name('category_index');
+        Route::get('-category/manage/', ['uses' => 'ProductCategoryController@index', 'title' => 'Manage Categories','show' => 'Yes', 'position' => 'Left', 'show_for' => null])->name('category_index');
         Route::post('-category/store', ['uses' => 'ProductCategoryController@store'])->name('category_store');
         Route::get('-category/edit/{id}', ['uses' => 'ProductCategoryController@edit', 'title' => 'Edit Category'])->name('category_edit');
         Route::post('-category/update', ['uses' => 'ProductCategoryController@update'])->name('category_update');
@@ -79,8 +79,8 @@ Route::group(['prefix'=> '{wh_code?}','namespace' => 'Warehouse', 'show_for' => 
     /** PPI */
     Route::group(['key' => 'PPI','prefix' => '/ppi', 'as' => 'ppi_'], function(){
         Route::get('/api/get', ['uses' => 'PpiController@apiGet'])->name('api_get');
-        Route::get('/manage/', ['uses' => 'PpiController@index', 'title' => 'Manage PPI', 'show'=> 'Yes', 'position' => 'Left'])->name('index');
-        Route::get('/create', ['uses' => 'PpiController@create', 'title' => 'Create PPI', 'show'=> 'Yes', 'position' => 'Left'])->name('create');
+        Route::get('/manage/', ['uses' => 'PpiController@index', 'title' => 'Manage PPI', 'show'=> 'Yes', 'position' => 'Left', 'show_for' => null])->name('index');
+        Route::get('/create', ['uses' => 'PpiController@create', 'title' => 'Create PPI', 'show'=> 'Yes', 'position' => 'Left', 'show_for' => null])->name('create');
         Route::post('/store', ['uses' => 'PpiController@store'])->name('store');
         Route::get('/edit/{id}', ['uses' => 'PpiController@edit', 'title' => 'Edit'])->name('edit');
         Route::post('/update', ['uses' => 'PpiController@update'])->name('update');

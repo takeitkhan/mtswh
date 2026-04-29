@@ -49,8 +49,28 @@
                             @if($product)
                                 {{-- @dump($product) --}}
                                 @if(auth()->user()->hasRoutePermission('spi_buy_product_form_vendor'))
-                                    @include('admin.pages.warehouse.single.spi.validation-product-table')
+                                    @if(empty($getLineItem))
+                                        <div class="alert alert-warning">
+                                            <strong>No product data found.</strong> This might mean:
+                                            <ul>
+                                                <li>The product hasn't been added to stock in the source warehouse yet</li>
+                                                <li>Check if Product Stock records exist for this product</li>
+                                                <li>Verify the warehouse assignment for this product</li>
+                                            </ul>
+                                        </div>
+                                    @else
+                                        @include('admin.pages.warehouse.single.spi.validation-product-table')
+                                    @endif
+                                @else
+                                    <div class="alert alert-danger">
+                                        <strong>Permission Denied:</strong> You don't have permission to view product validation details. 
+                                        Please check your role permissions.
+                                    </div>
                                 @endif
+                            @else
+                                <div class="alert alert-danger">
+                                    <strong>Product not found:</strong> Unable to load the product information.
+                                </div>
                             @endif
                         </div>
                     </form>

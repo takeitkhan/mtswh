@@ -113,12 +113,9 @@ class SpiController extends SingleWarehouseController
      */
     public function edit($wh_code, $id)
     {
-        if (PpiSpiHelper::isLockedForCreator($id, 'Spi')) {
-            return redirect()->route('spi_index', [$wh_code])
-                ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Spi')]);
-        }
         $spi = $this->model::find($id);
-        return view('admin.pages.warehouse.single.spi.form', ['spi' => $spi]);
+        $isLocked = PpiSpiHelper::isLockedForCurrentUser($id, 'Spi');
+        return view('admin.pages.warehouse.single.spi.form', ['spi' => $spi, 'readonly' => $isLocked]);
     }
 
     /**
@@ -130,7 +127,7 @@ class SpiController extends SingleWarehouseController
     public function update(Request $request)
     {
         $spiId = $request->spi_id ?? $request->id;
-        if (PpiSpiHelper::isLockedForCreator($spiId, 'Spi')) {
+        if (PpiSpiHelper::isLockedForCurrentUser($spiId, 'Spi')) {
             return redirect()->back()
                 ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Spi')]);
         }
@@ -146,7 +143,7 @@ class SpiController extends SingleWarehouseController
      */
     public function destroy($wh_code, $id)
     {
-        if (PpiSpiHelper::isLockedForCreator($id, 'Spi')) {
+        if (PpiSpiHelper::isLockedForCurrentUser($id, 'Spi')) {
             return redirect()->back()
                 ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Spi')]);
         }
@@ -281,13 +278,13 @@ class SpiController extends SingleWarehouseController
                         ]);
                 $spiLastStatus = $getTranslateText ?? $spiLastSts->message;
                 $checkSentToBoss = $thiss->Model("PpiSpiStatus")::checkSpiStatus($data->id, "spi_sent_to_boss");
-                $isLocked = \App\Helpers\Warehouse\PpiSpiHelper::isLockedForCreator($data->id, "Spi");
+                $isLocked = \App\Helpers\Warehouse\PpiSpiHelper::isLockedForCurrentUser($data->id, "Spi");
                 $getWarehouseCode = $thiss->Model("Warehouse")::getColumn($data->warehouse_id, "code");
         ';
         /** Filed Show for loop */
         $fields = [
             'button' => '($isLocked ? null : $this->ButtonSet::delete("spi_destroy", [$getWarehouseCode, $data->id]))
-            .($isLocked ? null : $this->ButtonSet::edit("spi_edit", [$getWarehouseCode, $data->id]))',
+            .$this->ButtonSet::edit("spi_edit", [$getWarehouseCode, $data->id])',
             'id' => '$data->id',
             'spi_type' => '"<span class=\"$checkDisputes\">".$data->ppi_spi_type."</span>"',
             'project' => '$data->project',

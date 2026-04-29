@@ -84,6 +84,39 @@
                                 @endforeach
                             </select>
                         </div>
+                        {{-- Select User Warehouse --}}
+                        @if(isset($disable_input) && $disable_input ==  false)
+                        <div class="form-group select arrow_class">
+                            <label for="warehouse_id">Select Warehouse </label>
+                            @php
+                                $selectedWarehouseId = null;
+                                if(!empty($user)){
+                                    if(!empty($user->roles) && $user->roles->count() > 0){
+                                        // Find the first role with a non-null warehouse_id
+                                        $userRole = $user->roles->firstWhere('warehouse_id', '!=', null) ?? $user->roles->first();
+                                        if($userRole && $userRole->warehouse_id){
+                                            $selectedWarehouseId = (int) $userRole->warehouse_id;
+                                        }
+                                    }
+                                }
+                            @endphp
+                            <select class="form-select" aria-label=".form-select-lg" id="warehouse_id" name="warehouse_id">
+                                <option value="">Select Warehouse</option>
+                                @if(isset($warehouses) && count($warehouses) > 0)
+                                    @foreach ($warehouses as $warehouse)
+                                        <option value="{{ $warehouse->id }}"
+                                            {{ (int)$warehouse->id === $selectedWarehouseId ? 'selected' : ''}}>
+                                            {{ $warehouse->name }}
+                                        </option>
+                                    @endforeach
+                                @else
+                                    <option value="" disabled>No warehouses available</option>
+                                @endif
+                            </select>
+                        </div>
+                        @endif
+                        {{-- End User Warehouse --}}
+
                         {{-- Select User Role --}}
                         @if(isset($disable_input) && $disable_input ==  false)
                         <div class="form-group select arrow_class">

@@ -130,12 +130,20 @@ class User extends Authenticatable
             return true;
         } else {
             /**
-             * its registered from SingleWarehouseController
-             *  request()->get('warehouse_id')
+             * Get first role of user - can be warehouse-assigned or general
+             * First try to get warehouse-assigned role, fallback to general role
              */
-            $role = Roleuser::whereNull('warehouse_id')
-                        ->where('user_id', $user_id ?? auth()->user()->id)
+            $role = Roleuser::where('user_id', $user_id ?? auth()->user()->id)
+                        ->where('warehouse_id', '!=', null)
                         ->first();
+            
+            // If no warehouse-assigned role, get general role (warehouse_id = null)
+            if(!$role) {
+                $role = Roleuser::whereNull('warehouse_id')
+                            ->where('user_id', $user_id ?? auth()->user()->id)
+                            ->first();
+            }
+            
             return $role ?? null;
         }
 

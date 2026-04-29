@@ -7,8 +7,8 @@
 Route::group(['key' => 'SPI', 'prefix' => '/spi', 'as' => 'spi_'], function () {
 
     Route::get('/api/get', ['uses' => 'SpiController@apiGet'])->name('api_get');
-    Route::get('/manage/', ['uses' => 'SpiController@index', 'title' => 'Manage SPI', 'show' => 'Yes', 'position' => 'Left'])->name('index');
-    Route::get('/create', ['uses' => 'SpiController@create', 'title' => 'Create SPI', 'show' => 'Yes', 'position' => 'Left'])->name('create');
+    Route::get('/manage/', ['uses' => 'SpiController@index', 'title' => 'Manage SPI', 'show' => 'Yes', 'position' => 'Left', 'show_for' => null])->name('index');
+    Route::get('/create', ['uses' => 'SpiController@create', 'title' => 'Create SPI', 'show' => 'Yes', 'position' => 'Left', 'show_for' => null])->name('create');
     Route::post('/store', ['uses' => 'SpiController@store'])->name('store');
     Route::get('/edit/{id}', ['uses' => 'SpiController@edit', 'title' => 'Edit'])->name('edit');
     Route::post('/update', ['uses' => 'SpiController@update'])->name('update');
@@ -70,6 +70,6 @@ Route::group(['key' => 'SPI Action', 'prefix' => '/spi', 'as' => ''], function (
 }); // End PPI Action
 
 Route::group(['key' => 'SPI'], function () {
-    Route::get('/manage_lended/', ['uses' => 'SpiController@lendedProductsForSpi', 'title' => 'SPI Lended', 'show' => 'Yes', 'position' => 'Left'])->name('spi_lended');
+    Route::get('/manage_lended/', ['uses' => 'SpiController@lendedProductsForSpi', 'title' => 'SPI Lended', 'show' => 'Yes', 'position' => 'Left', 'show_for' => null])->name('spi_lended');
 });
 ?>

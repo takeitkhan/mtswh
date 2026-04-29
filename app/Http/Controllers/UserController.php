@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Warehouse;
 use Validator;
 use App\Models\Roleuser;
 use DB;
@@ -27,7 +28,8 @@ class UserController extends Controller
     }
 
     public function create(){
-        return view('admin.pages.users.form', ['disable_input' => false]);
+        $warehouses = Warehouse::all();
+        return view('admin.pages.users.form', ['disable_input' => false, 'warehouses' => $warehouses]);
     }
 
     public function store(Request $request)
@@ -65,6 +67,7 @@ class UserController extends Controller
             $roleAttr = [
                 'role_id' => $request->role_id,
                 'user_id' => $user->id,
+                'warehouse_id' => $request->warehouse_id ?? null,
             ];
 
             $roleuser = $this->roleuser::create($roleAttr);
@@ -80,8 +83,11 @@ class UserController extends Controller
 
     public function edit($id)
     {
-        $user = $this->model::with('roles')->find($id);
-        return view('admin.pages.users.form', ['user' => $user, 'disable_input' => false]);
+        $user = $this->model::with(['roles' => function($query) {
+            $query->with('warehouse');
+        }])->find($id);
+        $warehouses = Warehouse::all();
+        return view('admin.pages.users.form', ['user' => $user, 'disable_input' => false, 'warehouses' => $warehouses]);
     }
 
     public function editprofile($id)
@@ -113,6 +119,7 @@ class UserController extends Controller
             $roleAttr = [
                 'role_id' => $request->role_id,
                 'user_id' => $request->id,
+                'warehouse_id' => $request->warehouse_id ?? null,
             ];
             if(!empty($request->role_user_id)){
                 $roleuser = $this->roleuser::where('id', $request->role_user_id)->update($roleAttr);

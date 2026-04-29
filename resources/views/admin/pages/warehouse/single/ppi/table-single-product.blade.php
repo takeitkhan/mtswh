@@ -14,6 +14,7 @@
         <tr class="pr_row_{{$product->id}}">
             <td id="not_print" class="not_print">
                 @php
+                    $isProductLocked = \App\Helpers\Warehouse\PpiSpiHelper::isLockedForCurrentUser($ppi->id, 'Ppi');
                     $thisProductDisputeCorrrection = $Model('PpiSpiDispute')::disputeCorrectionDone('Ppi', $ppi->id, $product->id, ['action_performed_by' => auth()->user()->id, 'route_permission' => 'ppi_product_info_correction_by_boss_action']);
 
                     if($thisProductDisputeCorrrection == true){
@@ -28,8 +29,10 @@
                     }
                 @endphp
 
-                <span class="done_this_action_btn">{!! $ButtonSet::delete('ppi_product_destroy', [$warehouse_code, $product->id]) !!}</span>
-                <span class="{{$editClass ?? null}} ppiProductEditBtn"> {!! $ButtonSet::edit('ppi_product_edit', [$warehouse_code, $product->id]) !!}</span>
+                @if(!$isProductLocked)
+                    <span class="done_this_action_btn">{!! $ButtonSet::delete('ppi_product_destroy', [$warehouse_code, $product->id]) !!}</span>
+                    <span class="{{$editClass ?? null}} ppiProductEditBtn"> {!! $ButtonSet::edit('ppi_product_edit', [$warehouse_code, $product->id]) !!}</span>
+                @endif
             </td>
             <td id="not_print" class="xform-check text-center ppi_set_product_add not_print">
                 @if(auth()->user()->hasRoutePermission('ppi_set_product_add'))

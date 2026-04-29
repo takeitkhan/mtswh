@@ -48,7 +48,7 @@ class SpiProductController extends SingleWarehouseController
 
     public function store(Request $request)
     {
-        if (PpiSpiHelper::isLockedForCreator($request->spi_id, 'Spi')) {
+        if (PpiSpiHelper::isLockedForCurrentUser($request->spi_id, 'Spi')) {
             return response()->json([
                 'success' => false,
                 'message' => PpiSpiHelper::lockMessage('Spi')
@@ -291,7 +291,7 @@ class SpiProductController extends SingleWarehouseController
      */
     public function edit($wh_code, $id){
         $spiEditProduct = $this->model::find($id);
-        if ($spiEditProduct && PpiSpiHelper::isLockedForCreator($spiEditProduct->spi_id, 'Spi')) {
+        if ($spiEditProduct && PpiSpiHelper::isLockedForCurrentUser($spiEditProduct->spi_id, 'Spi')) {
             return redirect()->route('spi_index', [$wh_code])
                 ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Spi')]);
         }
@@ -318,7 +318,7 @@ class SpiProductController extends SingleWarehouseController
             // Find and update the product
             $spiProduct = $this->model::findOrFail($spi_product_id);
 
-            if (PpiSpiHelper::isLockedForCreator($spiProduct->spi_id, 'Spi')) {
+            if (PpiSpiHelper::isLockedForCurrentUser($spiProduct->spi_id, 'Spi')) {
                 return response()->json([
                     'success' => false,
                     'message' => PpiSpiHelper::lockMessage('Spi')
@@ -356,7 +356,7 @@ class SpiProductController extends SingleWarehouseController
 //        dd($id);
 
         $data = $this->model::find($id);
-        if ($data && PpiSpiHelper::isLockedForCreator($data->spi_id, 'Spi')) {
+        if ($data && PpiSpiHelper::isLockedForCurrentUser($data->spi_id, 'Spi')) {
             return redirect()->back()
                 ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Spi')]);
         }

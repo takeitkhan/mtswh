@@ -93,6 +93,121 @@ class PpiSpiHelper
     }
 
     /**
+     * Check if a PPI/SPI is locked for ANY user based on their role and the current status.
+     * Implements hierarchical lock logic:
+     * - Subordinate Manager: locked after sending to Boss
+     * - Boss: locked after sending to Warehouse Manager (unless Dispute)
+     * - Warehouse Manager: only locked if their action is reverted
+     * - Global Admin: never locked
+     *
+     * @param int|string $ppiSpiId
+     * @param string     $actionFormat 'Ppi' or 'Spi'
+     * @return bool true if locked for current user, false otherwise
+     */
+    public static function isLockedForCurrentUser($ppiSpiId, $actionFormat = 'Ppi')
+    {
+        if (empty($ppiSpiId)) {
+            return false;
+        }
+
+        $user = auth()->user();
+        if (empty($user)) {
+            return false;
+        }
+
+        // Global admins and super admins bypass all locks
+        if (method_exists($user, 'checkUserRoleTypeGlobal') && $user->checkUserRoleTypeGlobal()) {
+            return false;
+        }
+
+        $record = PpiSpi::find($ppiSpiId);
+        if (empty($record)) {
+            return false;
+        }
+
+        $lastStatus = PpiSpiStatus::where('ppi_spi_id', $ppiSpiId)
+            ->where('status_for', $actionFormat)
+            ->where('status_format', 'Main')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if (empty($lastStatus)) {
+            return false;
+        }
+
+        $currentUserId = $user->id;
+        $recordCreatorId = $record->action_performed_by;
+        $lastStatusCode = $lastStatus->code;
+        $lastStatusPerformedBy = $lastStatus->action_performed_by;
+
+        // Define lock statuses for each role
+        $subordinateCreatorLock = $actionFormat === 'Spi'
+            ? self::spiCreatorLockStatuses()
+            : self::ppiCreatorLockStatuses();
+
+        // Boss lock statuses: locked if sent to WH Manager (unless Dispute)
+        $bossLockStatuses = [
+            'ppi_sent_to_wh_manager',
+            'ppi_resent_to_wh_manager',
+            'ppi_ready_to_physical_validation',
+            'ppi_agreed_no_dispute',
+            'ppi_agreed_no_existing',
+            'ppi_existing_product_added_to_stock',
+            'ppi_barcode_print_done',
+            'ppi_new_product_added_to_stock',
+            'ppi_challan_pdf_printed',
+            'ppi_all_steps_complete',
+        ];
+
+        if ($actionFormat === 'Spi') {
+            $bossLockStatuses = [
+                'spi_sent_to_wh_manager',
+                'spi_resent_to_wh_manager',
+                'spi_ready_to_physical_validation',
+                'spi_all_steps_complete',
+            ];
+        }
+
+        // LOCK LOGIC FOR SUBORDINATE MANAGER (Creator)
+        // Lock if: user is creator AND status is in creator lock list
+        if (method_exists($user, 'checkUserRoleTypeGeneral') && $user->checkUserRoleTypeGeneral()) {
+            if ($currentUserId === $recordCreatorId && in_array($lastStatusCode, $subordinateCreatorLock, true)) {
+                return true;
+            }
+            return false;
+        }
+
+        // LOCK LOGIC FOR BOSS
+        // Lock if: status is in bossLockStatuses (meaning it's been sent to WH Manager)
+        // Unless: there's an active Dispute that Boss needs to correct
+        $userHasBossRole = $user->hasRole(['boss', 'Boss', 'boss_permission'])
+            || (method_exists($user, 'checkUserRole') && in_array('boss', (array)$user->checkUserRole()));
+
+        if ($userHasBossRole) {
+            // Check if there's a Dispute - if so, Boss is NOT locked (can correct)
+            $hasDispute = $lastStatusCode === 'ppi_dispute_by_wh_manager'
+                || $lastStatusCode === 'spi_dispute_by_wh_manager'
+                || $lastStatusCode === 'ppi_correction_done_by_boss'
+                || $lastStatusCode === 'spi_correction_done_by_boss';
+
+            if ($hasDispute) {
+                return false; // Boss can correct disputed records
+            }
+
+            // If no dispute and status is in boss lock list, Boss is locked
+            if (in_array($lastStatusCode, $bossLockStatuses, true)) {
+                return true;
+            }
+
+            return false;
+        }
+
+        // LOCK LOGIC FOR WAREHOUSE MANAGER - typically not locked (they handle their stage)
+        // Only locked if we explicitly set them as locked
+        return false;
+    }
+
+    /**
      * Human readable message shown when a write is blocked by the creator lock.
      */
     public static function lockMessage($actionFormat = 'Ppi')

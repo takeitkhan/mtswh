@@ -150,3 +150,4 @@ class HomeController extends Controller
         return redirect()->back()->with(['status' => 1, 'message' => 'Route Updated Successfully']);
     }
 }
+

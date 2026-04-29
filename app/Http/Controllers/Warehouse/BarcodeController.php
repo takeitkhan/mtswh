@@ -143,7 +143,7 @@ class BarcodeController extends SingleWarehouseController
                                         ->where('action_format', 'Spi')
                                         ->where('product_id', $product->product_id)
                                         ->where('bundle_id', $product->bundle_id)
-                                        ->where('warehouse_id', $product->from_warehouse)
+                                        ->where('warehouse_id', $product->from_warehouse ?? $product->warehouse_id)
                                         ->pluck('original_barcode')
                                         ->toArray();
 
@@ -156,7 +156,7 @@ class BarcodeController extends SingleWarehouseController
                 ->where('action_format', 'Spi')
                 ->where('ppi_spi_product_id', $spiProductId)
                 ->orderBy('id', 'desc')
-                ->where('warehouse_id', $product->from_warehouse)
+                ->where('warehouse_id', $product->from_warehouse ?? $product->warehouse_id)
                 ->take($product->qty);
             $getLineItem = $getLineItem->whereIn('original_barcode', $alreadyStockOut);
         }else{
@@ -167,7 +167,7 @@ class BarcodeController extends SingleWarehouseController
                         ->where('action_format', 'Ppi')
                         //->where('ppi_spi_product_id', $product->ppi_product_id)
                         ->orderBy('id', 'desc')
-                        ->where('warehouse_id', $product->from_warehouse)
+                        ->where('warehouse_id', $product->from_warehouse ?? $product->warehouse_id)
                         ->take($product->qty);
             if($barcode_format == 'Without-Tag'){
                 $getLineItem= $getLineItem->take(1);

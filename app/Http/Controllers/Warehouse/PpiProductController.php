@@ -47,7 +47,7 @@ class PpiProductController extends SingleWarehouseController
      * @return void
      */
     public function store(Request $request){
-        if (PpiSpiHelper::isLockedForCreator($request->ppi_id, 'Ppi')) {
+        if (PpiSpiHelper::isLockedForCurrentUser($request->ppi_id, 'Ppi')) {
             return redirect()->back()
                 ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Ppi')]);
         }
@@ -145,7 +145,7 @@ class PpiProductController extends SingleWarehouseController
      */
     public function edit($wh_code, $id){
         $ppiEditProduct = $this->model::find($id);
-        if ($ppiEditProduct && PpiSpiHelper::isLockedForCreator($ppiEditProduct->ppi_id, 'Ppi')) {
+        if ($ppiEditProduct && PpiSpiHelper::isLockedForCurrentUser($ppiEditProduct->ppi_id, 'Ppi')) {
             return redirect()->route('ppi_index', [$wh_code])
                 ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Ppi')]);
         }
@@ -161,7 +161,7 @@ class PpiProductController extends SingleWarehouseController
      * @return void
      */
     public function update(Request $request){
-        if (PpiSpiHelper::isLockedForCreator($request->ppi_id, 'Ppi')) {
+        if (PpiSpiHelper::isLockedForCurrentUser($request->ppi_id, 'Ppi')) {
             return redirect()->back()
                 ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Ppi')]);
         }
@@ -270,7 +270,7 @@ class PpiProductController extends SingleWarehouseController
         //dd('ok');
         //dd(PpiProduct::ppiProductInfoByPpiProductId($id, ['column' => 'product_name']));
         $data = $this->model::find($id);
-        if ($data && PpiSpiHelper::isLockedForCreator($data->ppi_id, 'Ppi')) {
+        if ($data && PpiSpiHelper::isLockedForCurrentUser($data->ppi_id, 'Ppi')) {
             return redirect()->back()
                 ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Ppi')]);
         }
@@ -329,7 +329,7 @@ class PpiProductController extends SingleWarehouseController
 //        dd($request->all());
         $fromPpiId = $request->from_ppi_id;
         $toPpiId = $request->to_ppi_id;
-        if (PpiSpiHelper::isLockedForCreator($toPpiId, 'Ppi')) {
+        if (PpiSpiHelper::isLockedForCurrentUser($toPpiId, 'Ppi')) {
             return redirect()->back()
                 ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Ppi')]);
         }
