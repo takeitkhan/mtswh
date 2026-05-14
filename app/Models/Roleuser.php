@@ -27,4 +27,16 @@ class Roleuser extends Model
         return  $this->hasOne('\App\Models\Warehouse', 'id', 'warehouse_id');
     }
     
+    /**
+     * Prevent deletion of mandatory roles
+     */
+    protected static function booted()
+    {
+        static::deleting(function ($roleUser) {
+            $role = $roleUser->role;
+            if ($role && $role->is_mandatory) {
+                throw new \Exception('Cannot delete mandatory role assignment');
+            }
+        });
+    }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Models\Role;
 use Validator;
 use App\Models\Roleuser;
 use DB;
@@ -72,6 +73,9 @@ class UserController extends Controller
 
             $roleuser = $this->roleuser::create($roleAttr);
 
+            // Assign mandatory roles automatically
+            $this->assignMandatoryRoles($user->id, $request->warehouse_id ?? null);
+
             try {
                 return redirect()->route('user_index')->with(['status' => 1, 'message' => 'Successfully created user']);
             } catch (\Exception $e) {
@@ -116,21 +120,48 @@ class UserController extends Controller
         ];
         $user = $this->model::where('id', $request->id)->update($attributes);
         if($request->role_id){
+            // Get the role to check if it's mandatory
+            $role = Role::find($request->role_id);
+            
+            // Only update role if the current role is not mandatory
+            // or if we're assigning a new role to a user without this role
+            $existingRole = $this->roleuser::where('user_id', $request->id)
+                                          ->where('role_id', $request->role_id)
+                                          ->first();
+            
             $roleAttr = [
                 'role_id' => $request->role_id,
                 'user_id' => $request->id,
                 'warehouse_id' => $request->warehouse_id ?? null,
             ];
             if(!empty($request->role_user_id)){
+                // Check if the role being updated is mandatory
+                $oldRoleuser = $this->roleuser::find($request->role_user_id);
+                $oldRole = Role::find($oldRoleuser->role_id);
+                
+                // Prevent removal of mandatory roles
+                if($oldRole && $oldRole->is_mandatory) {
+                    return redirect()->back()->with(['status' => 0, 'message' => 'Cannot modify mandatory role']);
+                }
+                
                 $roleuser = $this->roleuser::where('id', $request->role_user_id)->update($roleAttr);
             } else {
-                $roleuser = $this->roleuser::create($roleAttr);
+                // Check if this role already exists for this user to avoid duplicate
+                $alreadyExists = $this->roleuser::where('user_id', $request->id)
+                                               ->where('role_id', $request->role_id)
+                                               ->where('warehouse_id', $request->warehouse_id ?? null)
+                                               ->first();
+                
+                if(!$alreadyExists) {
+                    $roleuser = $this->roleuser::create($roleAttr);
+                }
+                // If already exists, just silently continue without error
             }
         }
         try {
             return redirect()->back()->with(['status' => 1, 'message' => 'Successfully updated']);
         } catch (\Exception $e) {
-            return redirect()->route('user_edit', $request->id)->with(['status' => 0, 'message' => 'Error']);
+            return redirect()->route('user_edit', $request->id)->with(['status' => 0, 'message' => 'Error: ' . $e->getMessage()]);
         }
     }
 
@@ -152,10 +183,46 @@ class UserController extends Controller
     public function destroy($id)
     {
         $user = $this->model::find($id);
+        
+        // Check if user has any mandatory roles
+        $mandatoryRoles = $this->roleuser::where('user_id', $id)
+                                        ->whereHas('role', function($query) {
+                                            $query->where('is_mandatory', 1);
+                                        })
+                                        ->get();
+        
+        if($mandatoryRoles->count() > 0) {
+            return redirect()->route('user_index')->with(['status' => 0, 'message' => 'Cannot delete user with mandatory roles']);
+        }
+        
         $user->delete();
         return redirect()->route('user_index', ['status' => 1, 'message' => 'Successfully deleted']);
     }
 
+    /**
+     * Assign mandatory roles to a user
+     */
+    private function assignMandatoryRoles($userId, $warehouseId = null)
+    {
+        // Get all mandatory roles
+        $mandatoryRoles = Role::where('is_mandatory', 1)->get();
+        
+        foreach($mandatoryRoles as $role) {
+            // Check if user already has this role
+            $existingRole = $this->roleuser::where('user_id', $userId)
+                                          ->where('role_id', $role->id)
+                                          ->first();
+            
+            // If not, create it
+            if(!$existingRole) {
+                $this->roleuser::create([
+                    'role_id' => $role->id,
+                    'user_id' => $userId,
+                    'warehouse_id' => $warehouseId,
+                ]);
+            }
+        }
+    }
 
     /**
      * Api method
@@ -164,11 +231,27 @@ class UserController extends Controller
     public function apiGetUser(Request $request){
         $query = $this->model::query()->with('roles');
 
-        $roles = ' $rolesu =[];
+        $roles = ' $rolesu = [];
                     foreach($data->roles as $role){
-                            $warehouseName = \App\Helpers\Query::accessModel("Warehouse")::name($role->warehouse_id) ?? null;
-                            $roleName = \App\Helpers\Query::accessModel("Role")::name($role->role_id) ?? null;
-                                $rolesu []= "<span title=\"{$warehouseName}\" class=\"badge bg-light text-dark\">{$roleName}</span>";
+                        $warehouseName = \App\Helpers\Query::accessModel("Warehouse")::name($role->warehouse_id) ?? "System-wide";
+                        $roleName = \App\Helpers\Query::accessModel("Role")::name($role->role_id) ?? "Unknown";
+                        $isMandatory = \App\Helpers\Query::accessModel("Role")::find($role->role_id)->is_mandatory ?? false;
+                        
+                        // Determine badge styling based on role type and mandatory status
+                        $badgeClass = "bg-light text-dark";
+                        if($isMandatory) {
+                            $badgeClass = "bg-info text-white";
+                        }
+                        
+                        $tooltip = "{$roleName}";
+                        if($warehouseName && $warehouseName !== "System-wide") {
+                            $tooltip .= " - {$warehouseName}";
+                        }
+                        if($isMandatory) {
+                            $tooltip .= " (Mandatory)";
+                        }
+                        
+                        $rolesu[] = "<span title=\"{$tooltip}\" class=\"badge {$badgeClass}\">{$roleName}</span>";
                     }
                     $roless = implode(" ", $rolesu);
                 ';
@@ -185,7 +268,6 @@ class UserController extends Controller
             'roles'  => '$roless',
         ];
         //dd($field);
-
 
         return $this->Datatable::generate($request, $query, $field, ['phpcode' => $roles] );
     }

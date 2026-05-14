@@ -58,7 +58,7 @@
                 <div class="master-title-wrapper">
                     @hasSection('onlytitle')
                         <div class="row">
-                            <div class="col-md-12">
+                            <div class="col-md-12" style="padding-left: 10px; margin-left: 15px;">
                                 @yield('onlytitle')
                             </div>
                         </div>
@@ -66,12 +66,12 @@
                         @hasSection('title')
                         <div class="cnt-right-top_header">
                                 <div class="row">
-                                    <div class="col-sm-12 col-lg-2">
+                                    <div class="col-sm-12 col-lg-3">
                                         <div class="recent-info d-flex">
                                             @yield('title')
                                         </div>
                                     </div>
-                                    <div class="col-lg-10 col-sm-12 text-right">
+                                    <div class="col-lg-9 col-sm-12 text-right">
                                         @hasSection('filterleft')
                                             <div class="category-related-link recent-info" style="justify-content: flex-start">
                                                 @yield('filterleft')

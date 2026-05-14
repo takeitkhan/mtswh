@@ -6,16 +6,38 @@
         </h6>
         <small>Select multiple PPIs and click "Add Selected" to add them all at once</small>
     </div>
+    
+    <!-- DEBUG: Show user role info -->
+    <div class="alert alert-warning m-2" style="font-size: 11px;">
+        <strong>DEBUG INFO:</strong> 
+        User ID: {{ auth()->user()->id }} | 
+        User Name: {{ auth()->user()->name }} | 
+        @php
+            $userRoles = DB::table('role_users')
+                ->join('roles', 'roles.id', '=', 'role_users.role_id')
+                ->where('role_users.user_id', auth()->user()->id)
+                ->pluck('roles.name', 'roles.code')
+                ->toArray();
+            
+            $isSubordinateManagerBackend = isset($userRoles['subordinate_manager']) || in_array('Subordinate Manager', $userRoles);
+        @endphp
+        Roles: @if($userRoles) {{ implode(', ', $userRoles) }} @else <span style="color: #dc3545;">No Roles Found</span> @endif
+        <br/>
+        <span id="userRoleDebug" style="font-weight: bold; color: {{ $isSubordinateManagerBackend ? '#dc3545' : '#28a745' }};">
+            Status: {{ $isSubordinateManagerBackend ? '✓ SUBORDINATE MANAGER DETECTED' : '✗ NOT Subordinate Manager' }}
+        </span>
+    </div>
+    
     <div class="card-body">
         <!-- PPI List Table -->
         <div class="table-responsive">
             <table class="table table-hover table-sm" id="ppiListTable" style="font-size: 12px;">
-                <thead class="table-light">
+                <thead class="table-light" id="ppiTableHead">
                     <tr>
                         <th style="width: 40px;"><input type="checkbox" id="selectAllPpis" title="Select/Deselect all PPIs"></th>
                         <th>PPI ID</th>
                         <th>Warehouse/Supplier</th>
-                        <th>Stock in Hand</th>
+                        <th class="stock-in-hand-col">Stock in Hand</th>
                         <th>Product State</th>
                         <th>Health Status</th>
                         <th>Unit Price</th>
@@ -88,6 +110,7 @@ if (typeof showAlert === 'undefined') {
 document.addEventListener('DOMContentLoaded', function() {
     const ppiListSection = document.getElementById('spiPpiListSection');
     const backBtn = document.getElementById('backToProductSelect');
+    let isSubordinateManager = false; // Track if current user is subordinate manager
 
     // Handle "Select All" checkbox
     document.addEventListener('change', function(e) {
@@ -130,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Listen for renderPpiList event from Select2 in product-add-section (new method)
     window.addEventListener('renderPpiList', function(e) {
         const ppis = e.detail.ppis;
-        renderPpiList(ppis);
+        renderPpiList(ppis, isSubordinateManager);
     });
 
     // Back to product selection
@@ -179,7 +202,23 @@ document.addEventListener('DOMContentLoaded', function() {
             ppiListLoading.style.display = 'none';
 
             if (data.success && data.ppis && data.ppis.length > 0) {
-                renderPpiList(data.ppis);
+                // DEBUG: Log all info
+                console.log('=== PPI List API Response ===');
+                console.log('User ID:', data.debug.user_id);
+                console.log('User Name:', data.debug.user_name);
+                console.log('Is Subordinate Manager:', data.debug.is_subordinate_manager);
+                console.log('All User Roles:', data.debug.all_user_roles);
+                
+                // Store the flag for use in renderPpiList
+                isSubordinateManager = data.is_subordinate_manager;
+                
+                if (data.is_subordinate_manager) {
+                    console.log('✓ Stock column will NOT be rendered for Subordinate Manager');
+                } else {
+                    console.log('✗ Stock column WILL be rendered - User is NOT Subordinate Manager');
+                }
+                
+                renderPpiList(data.ppis, data.is_subordinate_manager);
                 ppiListEmpty.style.display = 'none';
             } else {
                 ppiListEmpty.style.display = 'block';
@@ -195,19 +234,29 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Render PPI list in table
-    function renderPpiList(ppis) {
+    function renderPpiList(ppis, isSubordinateManager = false) {
         const ppiListBody = document.getElementById('ppiListBody');
         ppiListBody.innerHTML = '';
+
+        // Update header - hide/show Stock column based on role
+        const stockHeaderCol = document.querySelector('th.stock-in-hand-col');
+        if(stockHeaderCol) {
+            stockHeaderCol.style.display = isSubordinateManager ? 'none' : 'table-cell';
+        }
 
         ppis.forEach((ppi, index) => {
             const row = document.createElement('tr');
             row.setAttribute('data-ppi-id', ppi.ppi_id);
             row.setAttribute('data-product-id', ppi.product_id);
+            
+            // Stock column - conditionally included
+            const stockColumnHTML = isSubordinateManager ? '' : `<td class="stock-in-hand-col">${ppi.stock_in_hand !== null ? ppi.stock_in_hand : 'N/A'}</td>`;
+            
             row.innerHTML = `
                 <td style="width: 40px;"><input type="checkbox" class="ppi-select-checkbox" data-ppi-id="${ppi.ppi_id}" data-product-id="${ppi.product_id}" data-index="${index}"></td>
                 <td><strong>${ppi.ppi_id}</strong></td>
                 <td><span class="badge bg-success">${ppi.warehouse || 'N/A'}</span><br>${ppi.supplier || 'N/A'}</td>
-                <td>${ppi.stock_in_hand || 0}</td>
+                ${stockColumnHTML}
                 <td>${ppi.product_state || 'New'}</td>
                 <td>${ppi.health_status || 'Useable'}</td>
                 <td>৳${parseFloat(ppi.unit_price || 0).toFixed(2)}</td>
@@ -484,3 +533,23 @@ function addMultipleSelectedPpis() {
     });
 }
 </script>
+
+<style>
+/* Stock in Hand column styling */
+#ppiListTable th.stock-in-hand-col,
+#ppiListTable td.stock-in-hand-col {
+    display: table-cell;
+}
+
+/* When hidden */
+#ppiListTable th.stock-in-hand-col[style*="display: none"],
+#ppiListTable td.stock-in-hand-col[style*="display: none"] {
+    display: none !important;
+}
+
+/* Ensure consistent column alignment */
+#ppiListTable tr td:nth-child(4),
+#ppiListTable tr th:nth-child(4) {
+    /* Stock in Hand column */
+}
+</style>

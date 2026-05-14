@@ -16,6 +16,7 @@ Route::group(['key' => 'SPI', 'prefix' => '/spi', 'as' => 'spi_'], function () {
     Route::get('/selected-product-details-info', ['uses' => 'SpiController@selectedProductDetailsInfo'])->name('selected_product_details_info');
     Route::get('/get-ppi-list-for-product', ['uses' => 'SpiController@getPpiListForProduct'])->name('get_ppi_list_for_product');
     Route::get('/products/{id}', ['uses' => 'SpiController@getSpiProducts'])->name('get_spi_products');
+    Route::get('/get-alternative-ppis/{product_id}', ['uses' => 'SpiController@getAlternativePpis'])->name('get_alternative_ppis');
     Route::get('/history/{id}', ['uses' => 'PpiSpiHistoryController@history'])->name('history');
     Route::get('/spi-id-lookup', ['uses' => 'SpiController@lookup'])->name('spi_lookup');
 

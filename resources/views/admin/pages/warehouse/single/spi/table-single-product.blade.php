@@ -15,7 +15,62 @@
     @if(count($checkProductIsSet) > 0)
         <!-- Skip set products -->
     @else
-        <tr class="pr_row_{{$product->id}} {{$product->any_warning_cls}}" data-product-id="{{ $product->id }}">
+        @php
+            // Pre-calculate stock for this row - moved before tr tag
+            $stockInHand = 'N/A';
+            $stockNumeric = 0;
+            $debugInfo = [
+                'ppi_id' => $product->ppi_id ?? 'NULL',
+                'product_id' => $product->product_id ?? 'NULL',
+                'ppi_product_id' => $product->ppi_product_id ?? 'NULL',
+                'qty_requested' => $product->qty ?? 0
+            ];
+            
+            // Try ppi_product_id first (direct ID from ppi_products table)
+            if($product->ppi_product_id) {
+                $ppiProduct = DB::table('ppi_products')
+                    ->where('id', $product->ppi_product_id)
+                    ->first();
+                
+                if($ppiProduct) {
+                    $stockInHand = $ppiProduct->qty ?? 'N/A';
+                    $stockNumeric = (int)($ppiProduct->qty ?? 0);
+                    $debugInfo['found'] = true;
+                    $debugInfo['stock'] = $stockNumeric;
+                    $debugInfo['lookup_method'] = 'ppi_product_id';
+                } else {
+                    $debugInfo['found'] = false;
+                    $debugInfo['note'] = 'ppi_product_id lookup failed';
+                }
+            } 
+            // Fallback to ppi_id + product_id
+            else if($product->ppi_id) {
+                $ppiProduct = DB::table('ppi_products')
+                    ->where('ppi_id', $product->ppi_id)
+                    ->where('product_id', $product->product_id)
+                    ->first();
+                
+                if($ppiProduct) {
+                    $stockInHand = $ppiProduct->qty ?? 'N/A';
+                    $stockNumeric = (int)($ppiProduct->qty ?? 0);
+                    $debugInfo['found'] = true;
+                    $debugInfo['stock'] = $stockNumeric;
+                    $debugInfo['lookup_method'] = 'ppi_id + product_id';
+                } else {
+                    $debugInfo['found'] = false;
+                    $debugInfo['note'] = 'No PPI product found with ppi_id + product_id';
+                }
+            } else {
+                $debugInfo['note'] = 'No ppi_product_id or ppi_id';
+            }
+            
+            $qtyRequested = (int)$product->qty;
+            // Check if qty exceeds stock (even if stock is 0, still show as exceeded)
+            $isQtyExceeded = ($qtyRequested > $stockNumeric);
+            $rowClass = $isQtyExceeded ? 'table-danger' : '';
+        @endphp
+
+        <tr class="pr_row_{{$product->id}} {{$product->any_warning_cls}} {{ $rowClass }}" data-product-id="{{ $product->id }}" data-stock-available="{{ $stockNumeric }}" data-debug="{{ json_encode($debugInfo) }}">
             <!-- Delete & Edit Buttons -->
             <td>
                 @php
@@ -77,14 +132,37 @@
                 @endif
             </td>
 
-            <!-- Product Name -->
+            <!-- Product Name with Details -->
             <td class="product {{!empty($Model('PpiSpiDispute')::checkProductForDispute('Spi', $spi->id, $product->id, 'product')) ? 'text-danger fw-bold' : '' }}">
                 <strong>{{ $product->product_name }}</strong>
+                <div style="font-size: 0.85rem; color: #666; margin-top: 4px; line-height: 1.4;">
+                    <div><small><strong>State:</strong> {!! $Model('PpiProduct')::ppiProductInfoByPpiProductId($product->ppi_product_id, ['column' => 'product_state']) !!}</small></div>
+                    <div><small><strong>Health:</strong> {!! $Model('PpiProduct')::ppiProductInfoByPpiProductId($product->ppi_product_id, ['column' => 'health_status']) !!}</small></div>
+                    <div><small><strong>Barcode:</strong> {!! $product->barcode_format !!}</small></div>
+                </div>
             </td>
 
             <!-- Quantity (Editable) -->
             <td class="qty p-1 {{!empty($Model('PpiSpiDispute')::checkProductForDispute('Spi', $spi->id, $product->id, 'qty')) ? 'text-danger fw-bold' : '' }}">
-                <input type="number" class="form-control form-control-sm qty-input" value="{{ $product->qty }}" min="1" data-old-value="{{ $product->qty }}" data-product-id="{{ $product->id }}" {{ $isProductLocked ? 'disabled' : '' }}>
+                <input type="number" class="form-control form-control-sm qty-input" value="{{ $product->qty }}" min="1" data-old-value="{{ $product->qty }}" data-product-id="{{ $product->id }}" data-max-available="{{ $stockNumeric }}" {{ $isProductLocked ? 'disabled' : '' }}>
+                @php
+                    // Get user roles to check if boss
+                    $userRolesForButtonCheck = DB::table('role_users')->join('roles', 'roles.id', '=', 'role_users.role_id')
+                        ->where('role_users.user_id', auth()->user()->id)
+                        ->pluck('roles.name', 'roles.code')->toArray();
+                    $isBossForButtons = isset($userRolesForButtonCheck['boss']) || in_array('Boss', $userRolesForButtonCheck);
+                @endphp
+                @if($isQtyExceeded && $isBossForButtons)
+                    <small class="text-danger fw-bold d-block mt-1">⚠ Shortfall: {{ $qtyRequested - $stockNumeric }} units</small>
+                    <div class="mt-1 d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-warning adjust-to-available" data-product-id="{{ $product->id }}" data-max-available="{{ $stockNumeric }}">
+                            <i class="fas fa-sync"></i> Adjust
+                        </button>
+                        <button type="button" class="btn btn-sm btn-info add-from-another-ppi" data-product-id="{{ $product->product_id }}" data-ppi-id="{{ $product->ppi_id }}" data-product-name="{{ $product->product_name }}" data-shortfall="{{ $qtyRequested - $stockNumeric }}" data-bs-toggle="modal" data-bs-target="#alternativePpiModal">
+                            <i class="fas fa-plus-circle"></i> Add from other PPI
+                        </button>
+                    </div>
+                @endif
             </td>
 
             <!-- Unit -->
@@ -101,14 +179,75 @@
                 <input type="number" class="form-control form-control-sm unit-price-input" value="{{ $product->unit_price }}" step="0.01" min="0" data-old-value="{{ $product->unit_price }}" data-product-id="{{ $product->id }}" {{ $isProductLocked ? 'disabled' : '' }}>
             </td>
 
-            <!-- Product State -->
-            <td class="ppi-info-col">{!! $Model('PpiProduct')::ppiProductInfoByPpiProductId($product->ppi_product_id, ['column' => 'product_state']) !!}</td>
+            <!-- PPI ID -->
+            <td style="background-color: #f0f8ff; font-weight: bold; font-size: 12px; text-align: center;">
+                {{ $product->ppi_id ?? 'N/A' }}
+            </td>
 
-            <!-- Health Status -->
-            <td class="ppi-info-col">{!! $Model('PpiProduct')::ppiProductInfoByPpiProductId($product->ppi_product_id, ['column' => 'health_status']) !!}</td>
+            <!-- Site Code -->
+            <td style="background-color: #fff8f0; font-weight: bold; font-size: 12px; text-align: center;">
+                @php
+                    $siteCode = 'N/A';
+                    if($spi && $spi->source) {
+                        // Get the latest site code from SPI sources
+                        $latestSource = $spi->source()
+                            ->orderBy('id', 'desc')
+                            ->first();
+                        if($latestSource) {
+                            $siteCode = $latestSource->who_source ?? 'N/A';
+                        }
+                    }
+                @endphp
+                {{ $siteCode }}
+            </td>
 
-            <!-- Barcode Format -->
-            <td class="not_print ppi-info-col">{!! $product->barcode_format !!}</td>
+            @php
+                // Detect if current user is Boss (for Stock In Hand display)
+                $userRoles = DB::table('role_users')->join('roles', 'roles.id', '=', 'role_users.role_id')
+                    ->where('role_users.user_id', auth()->user()->id)
+                    ->pluck('roles.name', 'roles.code')->toArray();
+                $isBossUser = isset($userRoles['boss']) || in_array('Boss', $userRoles);
+                
+                // Total QTY in this specific PPI for this product
+                $totalQtyInThisPpi = 0;
+                
+                // Get the actual PPI ID from ppi_products table using ppi_product_id
+                if($product->ppi_product_id) {
+                    $actualPpiProduct = DB::table('ppi_products')
+                        ->where('id', $product->ppi_product_id)
+                        ->first();
+                    
+                    if($actualPpiProduct) {
+                        $totalQtyInThisPpi = $actualPpiProduct->qty ?? 0;
+                    }
+                }
+
+                // Total QTY in this specific SPI for this product
+                $totalQtyInThisSpi = DB::table('spi_products')
+                    ->where('spi_id', $spi->id)
+                    ->where('product_id', $product->product_id)
+                    ->sum('qty') ?? 0;
+
+                // Stock in Hand = Total in PPI - Total in SPI
+                $stockInHandCalculated = $totalQtyInThisPpi - $totalQtyInThisSpi;
+            @endphp
+
+            @if($isBossUser)
+                <!-- Total QTY in this PPI -->
+                <td style="background-color: #ffe8e8; font-weight: bold; text-align: center;">
+                    {{ $totalQtyInThisPpi }}
+                </td>
+
+                <!-- Total QTY in this SPI -->
+                <td style="background-color: #e8f0ff; font-weight: bold; text-align: center;">
+                    {{ $totalQtyInThisSpi }}
+                </td>
+
+                <!-- Stock in Hand (PPI Total - SPI Total) -->
+                <td class="stock-in-hand-col" style="background-color: #e8f4f8; font-weight: bold; text-align: center;">
+                    {{ $stockInHandCalculated }}
+                </td>
+            @endif
 
             <!-- Notes (Editable) -->
             <td class="note p-1">

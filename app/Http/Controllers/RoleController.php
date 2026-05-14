@@ -116,6 +116,12 @@ class RoleController extends Controller
     public function destroy($id)
     {
         $role = $this->model::find($id);
+        
+        // Prevent deletion of mandatory roles
+        if($role && $role->is_mandatory) {
+            return redirect()->back()->with(['status' => 0, 'message' => 'Cannot delete mandatory role']);
+        }
+        
         $role->delete(); 
         return redirect()->back()->with(['status' => 1, 'message' => 'Successfully deleted']);
     }

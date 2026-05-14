@@ -8,6 +8,7 @@ use App\Models\PpiSpi;
 use Illuminate\Http\Request;
 use Validator;
 use App\Models\Warehouse;
+use App\Models\Role;
 use App\Models\Roleuser;
 use App\Models\PpiSpiNotification;
 use Carbon\Carbon;
@@ -78,6 +79,12 @@ class WarehouseController extends Controller
             $assignAttr = [];
             if ($request->assign_user != null) {
                 foreach ($request->assign_user as $key => $assignUser) {
+                    // Skip mandatory roles (they are already assigned at user creation)
+                    $role = Role::find($assignUser['role_id']);
+                    if ($role && $role->is_mandatory) {
+                        continue;
+                    }
+                    
                     $assignAttr[] = $attributes = [
                         'user_id' => $assignUser['user_id'],
                         'role_id' => $assignUser['role_id'],
@@ -85,7 +92,9 @@ class WarehouseController extends Controller
                     ];
                 } //End Foreach
                 //dd($assignAttr);
-                $whr = $this->roleuser::insert($assignAttr);
+                if (!empty($assignAttr)) {
+                    $whr = $this->roleuser::insert($assignAttr);
+                }
             } //End if
 
             try {
@@ -104,6 +113,7 @@ class WarehouseController extends Controller
     public function edit($id)
     {
         $wh = $this->model::find($id);
+        // Get all assigned users including mandatory roles
         $assignedUser = $this->roleuser::where('warehouse_id', $id)->get();
         return view('admin.pages.warehouse.form', compact('wh', 'assignedUser'));
     }
@@ -150,6 +160,20 @@ class WarehouseController extends Controller
 
     public function update(Request $request)
     {
+        $assignUsers = $request->input('assign_user', []);
+        
+        // Filter out incomplete entries before validation
+        $validAssignUsers = [];
+        if (is_array($assignUsers)) {
+            foreach ($assignUsers as $au) {
+                if (!empty($au['user_id']) && !empty($au['role_id'])) {
+                    $validAssignUsers[] = $au;
+                }
+            }
+        }
+        
+        $request->merge(['assign_user' => $validAssignUsers]);
+        
         $request->validate([
             'id' => 'required|integer|exists:warehouses,id',
             'name' => 'required|string',
@@ -170,8 +194,28 @@ class WarehouseController extends Controller
             $warehouse = $this->model::findOrFail($request->id);
             $warehouse->update($warehouseAttributes);
 
+            // Build list of user-role pairs to keep
+            $pairsToKeep = [];
             $toInsert = [];
+            
             foreach ($assignUsers as $au) {
+                if (empty($au['user_id']) || empty($au['role_id'])) {
+                    continue;
+                }
+                
+                $key = $au['user_id'] . '_' . $au['role_id'];
+                
+                // Check for duplicates in the request itself
+                if (isset($pairsToKeep[$key])) {
+                    DB::rollBack();
+                    return redirect()->back()->with(['status' => 0, 'message' => 'Duplicate user-role assignment detected. Each user can only have one role per warehouse.'])->withInput();
+                }
+                
+                $pairsToKeep[$key] = [
+                    'user_id' => $au['user_id'],
+                    'role_id' => $au['role_id'],
+                ];
+                
                 $exists = $this->roleuser::where('warehouse_id', $warehouse->id)
                     ->where('user_id', $au['user_id'])
                     ->where('role_id', $au['role_id'])
@@ -187,6 +231,19 @@ class WarehouseController extends Controller
                     ];
                 }
             }
+            
+            // Delete assignments that are not in the new list (but keep mandatory roles)
+            $existing = $this->roleuser::where('warehouse_id', $warehouse->id)
+                ->whereHas('role', function($query) {
+                    $query->where('is_mandatory', false);
+                })
+                ->get();
+            foreach ($existing as $roleuser) {
+                $key = $roleuser->user_id . '_' . $roleuser->role_id;
+                if (!isset($pairsToKeep[$key])) {
+                    $roleuser->delete();
+                }
+            }
 
             if (!empty($toInsert)) {
                 $this->roleuser::insert($toInsert);
@@ -194,9 +251,16 @@ class WarehouseController extends Controller
 
             DB::commit();
             return redirect()->back()->with(['status' => 1, 'message' => 'Successfully updated']);
+        } catch (\Illuminate\Database\QueryException $e) {
+            DB::rollBack();
+            // Handle unique constraint violation
+            if (strpos($e->getMessage(), 'Duplicate entry') !== false || strpos($e->getMessage(), 'unique_user_role_warehouse') !== false) {
+                return redirect()->back()->with(['status' => 0, 'message' => 'A user-role assignment for this warehouse already exists. Please remove duplicates and try again.'])->withInput();
+            }
+            return redirect()->back()->with(['status' => 0, 'message' => 'Error: ' . $e->getMessage()])->withInput();
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->with(['status' => 0, 'message' => 'Error: ' . $e->getMessage()]);
+            return redirect()->back()->with(['status' => 0, 'message' => 'Error: ' . $e->getMessage()])->withInput();
         }
     }
 

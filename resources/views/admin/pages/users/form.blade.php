@@ -120,33 +120,58 @@
                         {{-- Select User Role --}}
                         @if(isset($disable_input) && $disable_input ==  false)
                         <div class="form-group select arrow_class">
-                            <label for="select">Select Role </label>
+                            <label for="select">Select Role 
+                                <small style="color: #666;">(User role is automatically assigned)</small>
+                            </label>
                             @php
-                                $roles = $Query::getData('roles')->whereIn('type', ['Global','General']);
+                                // Include all role types except mandatory roles (they're auto-assigned)
+                                $roles = $Query::getData('roles')
+                                    ->where('is_mandatory', false)
+                                    ->sortBy(function($role) {
+                                        return $role->type . '_' . $role->name;
+                                    });
                                 $getExistingRoleUserColumnId = '';
+                                $selectedRoleId = '';
+                                
+                                // Find the user's non-mandatory role for warehouse assignment
+                                if(!empty($user) && $user->roles->count() > 0) {
+                                    foreach($user->roles as $userRole) {
+                                        $roleObj = $Query::accessModel('Role')::find($userRole->role_id);
+                                        if($roleObj && !$roleObj->is_mandatory) {
+                                            $selectedRoleId = $userRole->role_id;
+                                            $getExistingRoleUserColumnId = $userRole->id;
+                                            break; // Take the first non-mandatory role
+                                        }
+                                    }
+                                }
                             @endphp
                             <select class="form-select" aria-label=".form-select-lg" id="select" name="role_id" required>
                                 <option value="">Select Role</option>
                                 @foreach ($roles as $role)
-                                    @php
-                                        if(!empty($user)){
-                                            $user_role =  $user->roles->toArray();
-                                        }else {
-                                            $user_role = [];
-                                        }
-                                        $getMatchedRoleIdArr = array_search($role->id, array_column($user_role, 'role_id'));
-                                        $getRoleId = $user->roles[$getMatchedRoleIdArr] ?? null;
-                                        $userRoleId= $getRoleId->role_id ?? null;
-                                        $getExistingRoleUserColumnId = $getRoleId->id ?? null;
-                                    @endphp
                                     <option value="{{ $role->id }}"
-                                        {{ $userRoleId === $role->id ? 'selected' : ''}}>
+                                        {{ $selectedRoleId == $role->id ? 'selected' : ''}}>
                                         {{ $role->name }}
                                     </option>
                                 @endforeach
                             </select>
                             <input type="hidden" name="role_user_id" value="{{$getExistingRoleUserColumnId ?? Null}}" />
                         </div>
+                        
+                        <!-- Display mandatory roles -->
+                        @php
+                            $mandatoryRoles = $Query::getData('roles')->where('is_mandatory', true);
+                        @endphp
+                        @if($mandatoryRoles->count() > 0)
+                        <div class="alert alert-info" style="margin-top: 10px;">
+                            <strong>Mandatory Roles:</strong>
+                            <br>
+                            @foreach ($mandatoryRoles as $mandatoryRole)
+                                <span class="badge bg-primary">{{ $mandatoryRole->name }}</span>
+                            @endforeach
+                            <br>
+                            <small>These roles are automatically assigned to all users and cannot be removed.</small>
+                        </div>
+                        @endif
                         @endif
                         {{-- End User Role --}}
                         <div class="form-submit_btn">

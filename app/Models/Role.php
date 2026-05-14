@@ -13,10 +13,23 @@ class Role extends Model
     protected $fillable =[
         'name',
         'code',
-        'type'
+        'type',
+        'is_mandatory'
     ];
 
     public static function name($role_id){
         return Role::where('id', $role_id)->first()->name ?? Null;
+    }
+    
+    /**
+     * Prevent deletion of mandatory roles
+     */
+    protected static function booted()
+    {
+        static::deleting(function ($role) {
+            if ($role->is_mandatory) {
+                throw new \Exception('Cannot delete mandatory role');
+            }
+        });
     }
 } 

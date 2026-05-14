@@ -1,6 +1,14 @@
 <div class="row" id="tbl_ppi_product">
     <div class="col-md-12 table-wrapper desktop-view mobile-view h-auto">
 
+        @php
+            // Detect if current user is Boss
+            $userRoles = DB::table('role_users')->join('roles', 'roles.id', '=', 'role_users.role_id')
+                ->where('role_users.user_id', auth()->user()->id)
+                ->pluck('roles.name', 'roles.code')->toArray();
+            $isBossUser = isset($userRoles['boss']) || in_array('Boss', $userRoles);
+        @endphp
+
         <form action="javascript:void(0)" method="post" id="tbl_ppi_product_form_action">
             @csrf
             <h6>
@@ -82,9 +90,13 @@
                             <th>QTY</th>
                             <th>Unit</th>
                             <th class="ppi_product_price_show">Price</th>
-                            <th>Product State</th>
-                            <th>Health Status</th>
-                            <th class="not_print">Barcode Format</th>
+                            <th style="background-color: #f0f8ff; font-size: 11px; text-align: center;">PPI ID</th>
+                            <th style="background-color: #fff8f0; font-size: 11px; text-align: center;">Site Code</th>
+                            @if($isBossUser)
+                                <th style="background-color: #ffe8e8; font-size: 11px; text-align: center;">Total QTY in PPI</th>
+                                <th style="background-color: #e8f0ff; font-size: 11px; text-align: center;">Total QTY in SPI</th>
+                                <th class="stock-in-hand-header" style="text-align: center;">Stock in Hand</th>
+                            @endif
                             <th class="not_print">Note</th>
                             <th class="not_print">From Warehouse</th>
                             <th class="not_print">Dispute Note</th>
@@ -171,6 +183,12 @@
             document.querySelectorAll('a.edit').forEach(editLink => {
                 editLink.removeEventListener('click', handleEditProduct);
                 editLink.addEventListener('click', handleEditProduct);
+            });
+
+            // Adjust to available stock button
+            document.querySelectorAll('.adjust-to-available').forEach(btn => {
+                btn.removeEventListener('click', handleAdjustToAvailable);
+                btn.addEventListener('click', handleAdjustToAvailable);
             });
         }
 
@@ -312,6 +330,34 @@
             });
         }
 
+        // Adjust quantity to available stock handler
+        function handleAdjustToAvailable(e) {
+            e.preventDefault();
+            const maxAvailable = this.dataset.maxAvailable;
+            const productId = this.dataset.productId;
+            const row = this.closest('tr');
+            const qtyInput = row.querySelector('.qty-input');
+            
+            if (qtyInput) {
+                qtyInput.value = maxAvailable;
+                qtyInput.dispatchEvent(new Event('change'));
+                
+                // Remove red highlight
+                row.classList.remove('table-danger');
+                
+                // Hide the adjust button and shortfall message
+                const shortfallMsg = row.querySelector('.text-danger.fw-bold');
+                if (shortfallMsg) shortfallMsg.remove();
+                this.remove();
+                
+                // Show save button
+                const saveBtn = row.querySelector('a.save');
+                if (saveBtn) {
+                    saveBtn.style.display = 'inline-block';
+                }
+            }
+        }
+
         // Handle product additions from PPI list section
         window.addEventListener('addProductToSpi', function(event) {
             console.log('🔔 EVENT: addProductToSpi received:', event);
@@ -395,12 +441,240 @@
             });
         });
 
+        // Handle product additions from alternative PPIs
+        window.addEventListener('addProductFromAlternativePpi', function(event) {
+            console.log('🔔 EVENT: addProductFromAlternativePpi received:', event.detail);
+            
+            const detail = event.detail;
+            const warehouseCodeElement = document.querySelector('[data-warehouse-code]');
+            const warehouseCode = warehouseCodeElement ? warehouseCodeElement.getAttribute('data-warehouse-code') : '{{ $warehouse_code }}';
+            const spiId = document.getElementById('spiIdInput')?.value || '{{ $spi->id }}';
+            
+            if (!spiId) {
+                console.error('❌ SPI ID not found');
+                alert('Error: SPI ID not found');
+                return;
+            }
+
+            // Send request to add product from alternative PPI
+            const formData = new FormData();
+            formData.append('spi_id', spiId);
+            formData.append('ppi_id', detail.ppi_id);
+            formData.append('product_id', detail.product_id);
+            formData.append('qty', detail.quantity);
+            formData.append('unit_price', detail.unit_price);
+            formData.append('_token', document.querySelector('input[name="_token"]').value);
+
+            fetch(`{{ url('/') }}/${warehouseCode}/spi/product/store`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success || data.status === true) {
+                    console.log('✅ Product added successfully from alternative PPI');
+                    // Reload products
+                    const event = new CustomEvent('addProductToSpi', {
+                        detail: { ppi_id: detail.ppi_id, product_id: detail.product_id }
+                    });
+                    window.dispatchEvent(event);
+                } else {
+                    alert(data.message || 'Failed to add product');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error adding product from alternative PPI');
+            });
+        });
+
         // Initial attachment of event handlers when DOM is loaded
         document.addEventListener('DOMContentLoaded', function() {
             attachRowEventHandlers();
+            
+            // Handle alternative PPI modal opening
+            const modal = document.getElementById('alternativePpiModal');
+            if(modal) {
+                modal.addEventListener('show.bs.modal', function(e) {
+                    const button = e.relatedTarget;  // This is the button that triggered the modal
+                    const productId = parseInt(button.dataset.productId);
+                    const ppiIdWithShortfall = parseInt(button.dataset.ppiId);  // The PPI with shortfall to exclude
+                    const productName = button.dataset.productName;
+                    const shortfall = button.dataset.shortfall;
+                    
+                    // Get SPI ID from hidden input in form
+                    const spiIdInput = document.querySelector('input[name="id"]');
+                    const spiId = spiIdInput ? spiIdInput.value : null;
+                    
+                    console.log('📘 Modal opening - Product ID:', productId, 'Product Name:', productName);
+                    console.log('   PPI with shortfall (EXCLUDE):', ppiIdWithShortfall);
+                    console.log('   SPI ID:', spiId);
+                    
+                    document.getElementById('modalProductName').textContent = productName;
+                    document.getElementById('modalShortfall').textContent = shortfall;
+                    
+                    // Only exclude the current PPI that has shortfall
+                    loadAlternativePPIs(productId, ppiIdWithShortfall);
+                });
+            }
         });
+        
+        // Load alternative PPIs
+        function loadAlternativePPIs(productId, excludePpiId) {
+            const warehouseCodeElement = document.querySelector('[data-warehouse-code]');
+            const warehouseCode = warehouseCodeElement ? warehouseCodeElement.getAttribute('data-warehouse-code') : '{{ $warehouse_code }}';
+            
+            document.getElementById('alternativePpiLoading').style.display = 'block';
+            document.getElementById('alternativePpiContent').style.display = 'none';
+            document.getElementById('alternativePpiEmpty').style.display = 'none';
+            
+            let url = `{{ url('/') }}/${warehouseCode}/spi/get-alternative-ppis/${productId}`;
+            if(excludePpiId) {
+                url += `?exclude_ppi_id=${excludePpiId}`;
+            }
+            console.log('📥 Fetching PPIs for product:', productId, '| Excluding PPI with shortfall:', excludePpiId, '| URL:', url);
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('alternativePpiLoading').style.display = 'none';
+                    
+                    if(data.success && data.ppis && data.ppis.length > 0) {
+                        let html = '';
+                        data.ppis.forEach((ppi, index) => {
+                            html += `
+                                <tr>
+                                    <td><strong>${ppi.ppi_id}</strong></td>
+                                    <td>${ppi.warehouse_name || 'N/A'}</td>
+                                    <td><span class="badge bg-success">${ppi.stock_available}</span></td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm alternative-qty" 
+                                            value="1" min="1" max="${ppi.stock_available}" 
+                                            data-ppi-id="${ppi.ppi_id}" 
+                                            data-ppi-product-id="${ppi.ppi_product_id}"
+                                            data-product-id="${ppi.product_id}"
+                                            data-warehouse-id="${ppi.warehouse_id}">
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm btn-success add-this-ppi" 
+                                            data-ppi-id="${ppi.ppi_id}"
+                                            data-ppi-product-id="${ppi.ppi_product_id}"
+                                            data-product-id="${ppi.product_id}"
+                                            data-warehouse-id="${ppi.warehouse_id}"
+                                            data-unit-price="${ppi.unit_price || 0}">
+                                            <i class="fas fa-plus"></i> Add
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                        document.getElementById('alternativePpiList').innerHTML = html;
+                        document.getElementById('alternativePpiContent').style.display = 'block';
+                        
+                        // Attach event handlers
+                        document.querySelectorAll('.add-this-ppi').forEach(btn => {
+                            btn.removeEventListener('click', handleAddFromAlternativePpi);
+                            btn.addEventListener('click', handleAddFromAlternativePpi);
+                        });
+                    } else {
+                        document.getElementById('alternativePpiEmpty').style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading alternative PPIs:', error);
+                    document.getElementById('alternativePpiLoading').style.display = 'none';
+                    document.getElementById('alternativePpiEmpty').style.display = 'block';
+                    document.getElementById('alternativePpiEmpty').innerHTML = '<i class="fas fa-exclamation-circle"></i> Error loading PPIs. Please try again.';
+                });
+        }
+        
+        // Handle adding product from alternative PPI
+        function handleAddFromAlternativePpi(e) {
+            e.preventDefault();
+            
+            const button = this;
+            const ppiId = button.dataset.ppiId;
+            const productId = button.dataset.productId;
+            const warehouseId = button.dataset.warehouseId;
+            const unitPrice = button.dataset.unitPrice;
+            const qtyInput = button.closest('tr').querySelector('.alternative-qty');
+            const quantity = parseInt(qtyInput.value) || 1;
+            
+            if(quantity < 1) {
+                alert('Quantity must be at least 1');
+                return;
+            }
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('alternativePpiModal'));
+            if(modal) modal.hide();
+            
+            // Trigger event to add product from new PPI
+            const event = new CustomEvent('addProductFromAlternativePpi', {
+                detail: {
+                    ppi_id: ppiId,
+                    product_id: productId,
+                    warehouse_id: warehouseId,
+                    quantity: quantity,
+                    unit_price: unitPrice
+                }
+            });
+            window.dispatchEvent(event);
+            
+            alert(`Product will be added with ${quantity} units from PPI #${ppiId}`);
+        }
     </script>
 
+    <!-- Modal for Alternative PPIs -->
+    <div class="modal fade" id="alternativePpiModal" tabindex="-1" role="dialog" aria-labelledby="alternativePpiModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title" id="alternativePpiModalLabel">
+                        <i class="fas fa-box"></i> Add from Another PPI
+                    </h5>
+                    <button type="button" class="close text-white" data-bs-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-primary" role="alert">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Shortfall Adjustment:</strong> এই মডালটি Shortfall পূরণ করার জন্য অন্য গুদাম থেকে পণ্য যোগ করার সুবিধা প্রদান করে।
+                    </div>
+                    <div id="alternativePpiLoading" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="sr-only">Loading...</span>
+                        </div>
+                        <p class="mt-2">Finding available PPIs...</p>
+                    </div>
+                    <div id="alternativePpiContent" style="display: none;">
+                        <div class="alert alert-info">
+                            <small>Product: <strong id="modalProductName"></strong></small><br>
+                            <small>Shortfall: <strong id="modalShortfall"></strong> units</small>
+                        </div>
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>PPI ID</th>
+                                    <th>Warehouse</th>
+                                    <th>Available Stock</th>
+                                    <th>Add Quantity</th>
+                                    <th class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="alternativePpiList">
+                                <!-- PPIs will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="alternativePpiEmpty" class="alert alert-warning" style="display: none;">
+                        <i class="fas fa-info-circle"></i> No other PPIs found with this product.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <style>
         .table-wrapper table tbody td {

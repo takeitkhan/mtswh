@@ -13,7 +13,8 @@
         <form action="{{ !empty($wh) ? route('warehouse_update') : route('warehouse_store') }}" method="post">
             @csrf
             <div class="row">
-                <div class="col-md-8 col-lg-3 col-sm-12">
+                <!-- Warehouse Information Section -->
+                <div class="col-12">
                     <h6>
                         <div class="title-with-border">
                             Warehouse Information
@@ -59,19 +60,13 @@
                                     </option>
                                 </select>
                             </div>
-
-
-                            <div class="form-submit_btn">
-                                <button type="submit" class="btn blue">Submit</button>
-                            </div>
                         </div>
                 </div>
-                <div class="col-lg-2"></div>
-                <!-- -------------------
-                    Assign User 
-                ------------------------>
+            </div>
 
-                <div class="col-lg-3">
+            <div class="row mt-4">
+                <!-- Assign User Section -->
+                <div class="col-12">
                     <h6> 
                     <div class="title-with-border"> 
                         Assign user to role
@@ -81,14 +76,30 @@
                     </h6>
                     @php
                         $users = $Query::getData('users');
-                        $roles = $Query::getData('roles')->where('type','Custom');
+                        // Only Custom roles for warehouse-specific assignments
+                        $roles = $Query::getData('roles')
+                            ->where('type','Custom')
+                            ->where('is_mandatory', false);
+                        
+                        // Only show custom roles (filter out mandatory roles)
+                        $customRoles = [];
+                        if(!empty($assignedUser)) {
+                            foreach($assignedUser as $au) {
+                                if(!$au->role || !$au->role->is_mandatory) {
+                                    $customRoles[] = $au;
+                                }
+                            }
+                        }
                     @endphp
+
+                    <!-- Custom Roles Section -->
                     <div class="field_wrapper">
-                        <?php if(!empty($assignedUser)){
-                            foreach($assignedUser as $data){ 
+                        <?php if(!empty($customRoles)){
+                            $index = 0;
+                            foreach($customRoles as $data){ 
                         ?>
                         <div>
-                            <select name="assign_user[0{{$data->id}}][user_id]" class="select-box select" id="" required>
+                            <select name="assign_user[{{ $index }}][user_id]" class="select-box select" required>
                                 <option value="">Select user</option>
                                 @foreach ($users as $user)
                                     <option value="{{ $user->id }}" 
@@ -97,7 +108,7 @@
                                     </option>
                                 @endforeach
                             </select>
-                            <select name="assign_user[0{{$data->id}}][role_id]" class="select-box select" id="" required>
+                            <select name="assign_user[{{ $index }}][role_id]" class="select-box select" required>
                                 <option value="">Select role</option>
                                 @foreach ($roles as $role)
                                     <option value="{{ $role->id }}"
@@ -111,13 +122,20 @@
                             </a>
                         </div>
                         <?php 
+                            $index++;
                             }
                         }?>
                     </div>
+                </div>
+            </div>
 
-                </div> 
-                <!-- End Assign User -->
-                
+            <!-- Submit Button Row -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="form-submit_btn">
+                        <button type="submit" class="btn blue">Submit</button>
+                    </div>
+                </div>
             </div>
         </form>
     </div>
