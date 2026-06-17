@@ -92,6 +92,7 @@
                             <th class="ppi_product_price_show">Price</th>
                             <th style="background-color: #f0f8ff; font-size: 11px; text-align: center;">PPI ID</th>
                             <th style="background-color: #fff8f0; font-size: 11px; text-align: center;">Site Code</th>
+                            <th style="background-color: #f0fff8; font-size: 11px; text-align: center;">Project</th>
                             @if($isBossUser)
                                 <th style="background-color: #ffe8e8; font-size: 11px; text-align: center;">Total QTY in PPI</th>
                                 <th style="background-color: #e8f0ff; font-size: 11px; text-align: center;">Total QTY in SPI</th>
@@ -246,6 +247,16 @@
                 return;
             }
 
+            // Frontend validation: Check if requested qty exceeds available
+            const availableQty = parseFloat(row.dataset.availableQty || 0);
+            const requestedQty = parseFloat(qty || 0);
+            
+            if (requestedQty > availableQty) {
+                alert(`❌ Invalid Quantity!\n\nRequested: ${requestedQty}\nAvailable: ${availableQty}\n\nYou cannot save a quantity that exceeds available stock in PPI.`);
+                qtyInput.focus();
+                return;
+            }
+
             this.disabled = true;
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
@@ -266,7 +277,7 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success || data.status === true) {
-                    alert('Product updated successfully!');
+                    alert('✅ Product updated successfully!');
                     qtyInput.dataset.oldValue = qty;
                     priceInput.dataset.oldValue = unitPrice;
                     notesInput.dataset.oldValue = notes;
@@ -274,12 +285,12 @@
                     this.style.display = 'none';
                     this.innerHTML = '<i class="fas fa-save"></i>';
                 } else {
-                    alert(data.message || 'Failed to update product');
+                    alert('❌ ' + (data.message || 'Failed to update product'));
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error updating product');
+                alert('❌ Error updating product');
             })
             .finally(() => {
                 this.disabled = false;
@@ -314,8 +325,10 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success || data.status === true) {
-                    row.remove();
-                    alert('Product deleted successfully!');
+                    // Reload page after successful delete (no alert message)
+                    setTimeout(() => {
+                        location.reload();
+                    }, 200);
                 } else {
                     alert(data.message || 'Failed to delete product');
                     this.disabled = false;
@@ -459,11 +472,16 @@
             // Send request to add product from alternative PPI
             const formData = new FormData();
             formData.append('spi_id', spiId);
-            formData.append('ppi_id', detail.ppi_id);
-            formData.append('product_id', detail.product_id);
-            formData.append('qty', detail.quantity);
-            formData.append('unit_price', detail.unit_price);
+            formData.append('warehouse_code', warehouseCode);
             formData.append('_token', document.querySelector('input[name="_token"]').value);
+            
+            // Format products as array (backend expects product[0][...], product[1][...])
+            formData.append('product[0][ppi_id]', detail.ppi_id);
+            formData.append('product[0][product_id]', detail.product_id);
+            formData.append('product[0][qty]', detail.quantity);
+            formData.append('product[0][unit_price]', detail.unit_price);
+
+            console.log('Sending data to:', `${warehouseCode}/spi/product/store`);
 
             fetch(`{{ url('/') }}/${warehouseCode}/spi/product/store`, {
                 method: 'POST',
@@ -471,13 +489,12 @@
             })
             .then(response => response.json())
             .then(data => {
-                if (data.success || data.status === true) {
+                console.log('Response:', data);
+                if (data.success || data.status === true || data.status === 1) {
                     console.log('✅ Product added successfully from alternative PPI');
-                    // Reload products
-                    const event = new CustomEvent('addProductToSpi', {
-                        detail: { ppi_id: detail.ppi_id, product_id: detail.product_id }
-                    });
-                    window.dispatchEvent(event);
+                    alert('Product added successfully!');
+                    // Reload products table
+                    location.reload();
                 } else {
                     alert(data.message || 'Failed to add product');
                 }
@@ -605,9 +622,28 @@
                 return;
             }
             
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('alternativePpiModal'));
-            if(modal) modal.hide();
+            // Close modal - try Bootstrap 5 way, fallback to manual hiding
+            try {
+                const modalElement = document.getElementById('alternativePpiModal');
+                if(window.bootstrap && window.bootstrap.Modal) {
+                    const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                    if(modalInstance) {
+                        modalInstance.hide();
+                    } else {
+                        // Create and hide if instance doesn't exist
+                        const modal = new bootstrap.Modal(modalElement);
+                        modal.hide();
+                    }
+                } else {
+                    // Fallback for older Bootstrap or if bootstrap not available
+                    modalElement.classList.remove('show');
+                    modalElement.setAttribute('aria-hidden', 'true');
+                    const backdrop = document.querySelector('.modal-backdrop');
+                    if(backdrop) backdrop.remove();
+                }
+            } catch(err) {
+                console.warn('Modal close error (will continue):', err);
+            }
             
             // Trigger event to add product from new PPI
             const event = new CustomEvent('addProductFromAlternativePpi', {

@@ -5,17 +5,17 @@
         {{-- <input type="checkbox" id="checkAllCheckBox" class="h-auto mb-0" value=""> --}}
         </td>
         <th class="text-center">Product Name
-        </th>
+        </td>
         @if($bundle_product)
-            <th class="text-center">Size Of Bundle</th>
+            <th class="text-center">Name Of Bundle</th>
             <th class="text-center">Qty Of Bundle</th>
         @else
             <th class="text-center">Qty</th>
         @endif
         <th class="text-center" width="120px">Barcode Digit
-        </th>
+        </td>
         <th class="text-center" width="200px">Action
-        </th>
+        </td>
     </tr>
     </thead>
     <input type="hidden" name="spi_id" value="{{ $product->spi_id }}"/>
@@ -23,32 +23,31 @@
     <input type="hidden" name="product_id" value="{{ $product->product_id }}"/>
     <input type="hidden" name="product_unique_key" value="{{ $unique_key }}"/>
     <input type="hidden" name="warehouse_id" value="{{ $product->warehouse_id }}"/>
-    <input type="hidden" name="bundle_id" value="{{ $bundle_product ?? null }}"/>
     <tbody>
 
     @foreach ($getLineItem as $lineItem)
         @php
-            //dump($getBarcode);
             $barCodeDigit = $lineItem->barcode;
             $orginalBarCodeDigit = $lineItem->original_barcode;
-            //dump($lineItem);
             $thisProductId = $Model('Product')::getColumn($product->product_id, 'id');
 
-            $checkExistingWithDB = $Model('ProductStock')::where('barcode', $barCodeDigit)
+            $checkStockOutThisProduct = $Model('ProductStock')::where('barcode', $barCodeDigit)
                                 ->where('product_id', $thisProductId)
-                                //->where('stock_type', 'Existing')
                                 ->where('ppi_spi_id', $spi_id)
                                 ->where('action_format', 'Spi')
                                 ->where('ppi_spi_product_id', $product->id)
+                                ->where('stock_action', 'Out')
                                 ->first();
+
+            if($barcode_format == 'Without-Tag'){
+                $qty = $product->qty;
+            }else{
+                $qty = $lineItem->qty ?? 1;
+            }
         @endphp
 
-        <tr style="background: {{ $checkExistingWithDB ? '#ffecb5' : null }}">
+        <tr style="background: {{ $checkStockOutThisProduct ? '#ffecb5' : null }}">
             <td>
-                {{--                                                    @if ($checkExistingWithDB)--}}
-
-                {{--                                                    @else--}}
-
                 <input class="mb-0 d-none" id="barcode_product_line_item"
                        type="checkbox" name="barcode_product_line_item[]"
                        {{ $ppiLastStatusCode == 'spi_agreed_no_dispute' ? 'checked' : null }}
@@ -58,8 +57,6 @@
                        type="checkbox" name="barcode_product_unique_key[]"
                        {{ $ppiLastStatusCode == 'spi_agreed_no_dispute' ? 'checked' : null }}
                        value="{{$barCodeDigit}}"/>
-
-                {{--                                                    @endif--}}
             </td>
             <!-- Product Name -->
             <td>
@@ -68,15 +65,8 @@
             <!-- End Product Name -->
 
             <!-- Product Qty -->
-            @php
-                if($barcode_format == 'Without-Tag'){
-                    $qty =  $product->qty;
-                }else{
-                    $qty =  $lineItem->qty;
-                }
-            @endphp
             @if($bundle_product)
-             <td class="text-center">{{$bundle_product}}</td>
+                <td class="text-center">{{$bundle_product}}</td>
             @endif
             <td class="text-center">{{$qty}}</td>
 
@@ -84,23 +74,21 @@
             <input type="hidden" name="qty[]" value="{{$qty}}">
             <!-- End Produt Qty -->
 
-            <td class="{{ !empty($checkExistingWithDB) ? 'unselectable' : null }}">
+            <td class="{{ !empty($checkStockOutThisProduct) ? 'unselectable' : null }}">
                 @php
                     /**
                     * For Print
                     * */
-                    $forPrint []= $Query::barcodeGenerator($barCodeDigit, ['show_digit' => $orginalBarCodeDigit]);
+                    $forPrint []= $Query::barcodeGenerator($barCodeDigit, ['show_digit_title' => $barCodeDigit, 'show_digit' => $orginalBarCodeDigit]);
                 @endphp
 
                 @if($barcode_format == 'Tag')
                     <p class="text-center">
                         {!! $Query::barcodeGenerator($barCodeDigit, ['show_digit' => $orginalBarCodeDigit]) !!}
-                        {{--                                                            {{$barCodeDigit}}--}}
                     </p>
                 @elseif($barcode_format == 'Bundle-Tag')
                     <p class="text-center">
                         {!! $Query::barcodeGenerator($barCodeDigit, ['show_digit' => $orginalBarCodeDigit]) !!}
-                        {{--                                                            {{$barCodeDigit}}--}}
                     </p>
                 @else
                     {{$barcode_format}}
@@ -109,12 +97,27 @@
             </td>
 
             <td class="text-center">
-                @if($checkExistingWithDB)
+                @if($checkStockOutThisProduct)
                     <span class="badge bg-success">
-                     Stocked Out
-                  </span>
+                        Stocked Out
+                    </span>
                 @else
-
+                    @if(auth()->user()->hasRoutePermission('spi_ready_to_physical_validation_action'))
+                        @if ($ppiLastStatusCode == 'spi_agreed_no_dispute')
+                            @if($barcode_format == 'Tag' || $barcode_format == 'Bundle-Tag')
+                                <button type="button" id=""
+                                        class="btn btn-sm btn-outline-info py-0 existingProduct"
+                                        data-barcode="{!! $barCodeDigit !!}"
+                                        data-orginal_barcode="{!! $orginalBarCodeDigit !!}"
+                                        data-spi_product_id="{{ $product->id }}"
+                                        data-product_unique_key="{{ $unique_key }}"
+                                        data-product_qty="{{$qty}}"
+                                        data-product_id="{!! $thisProductId !!}">
+                                    Verify?
+                                </button>
+                            @endif
+                        @endif
+                    @endif
                 @endif
             </td>
         </tr>

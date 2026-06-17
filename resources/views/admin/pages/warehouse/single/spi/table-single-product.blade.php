@@ -64,17 +64,71 @@
                 $debugInfo['note'] = 'No ppi_product_id or ppi_id';
             }
             
-            $qtyRequested = (int)$product->qty;
-            // Check if qty exceeds stock (even if stock is 0, still show as exceeded)
-            $isQtyExceeded = ($qtyRequested > $stockNumeric);
+            // Get the actual quantity from temporary_stocks (manager's confirmed quantity)
+            $tempStockForCalc = DB::table('temporary_stocks')
+                ->where('spi_product_id', $product->id)
+                ->where('action_format', 'Spi')
+                ->first();
+            
+            // Use manager's confirmed quantity if available, otherwise use spi_products qty
+            $actualQty = $tempStockForCalc ? (int)$tempStockForCalc->waiting_stock_out : (int)$product->qty;
+            $qtyRequested = $actualQty;
+            
+            // Get total qty in this SPI for this PPI+product (all rows combined)
+            $totalQtyInThisPpi = DB::table('ppi_products')
+                ->where('ppi_id', $product->ppi_id)
+                ->where('product_id', $product->product_id)
+                ->sum('qty') ?? 0;
+            
+            $totalQtyInThisSpi = DB::table('spi_products')
+                ->where('spi_id', $spi->id)
+                ->where('product_id', $product->product_id)
+                ->where('ppi_id', $product->ppi_id)
+                ->sum('qty') ?? 0;
+            
+            // Available for this row = Total in PPI - (Already allocated to other SPI rows)
+            $totalQtyAllocatedByOtherRows = $totalQtyInThisSpi - $qtyRequested;
+            $availableForThisRow = $totalQtyInThisPpi - $totalQtyAllocatedByOtherRows;
+            
+            // Check if qty exceeds available stock
+            $isQtyExceeded = ($qtyRequested > $availableForThisRow);
             $rowClass = $isQtyExceeded ? 'table-danger' : '';
         @endphp
 
-        <tr class="pr_row_{{$product->id}} {{$product->any_warning_cls}} {{ $rowClass }}" data-product-id="{{ $product->id }}" data-stock-available="{{ $stockNumeric }}" data-debug="{{ json_encode($debugInfo) }}">
+        <tr class="pr_row_{{$product->id}} {{$product->any_warning_cls}} {{ $rowClass }}" data-product-id="{{ $product->id }}" data-stock-available="{{ $stockNumeric }}" data-available-qty="{{ $availableForThisRow }}" data-ppi-id="{{ $product->ppi_id }}" data-product-id-fk="{{ $product->product_id }}" data-debug="{{ json_encode($debugInfo) }}">
             <!-- Delete & Edit Buttons -->
             <td>
                 @php
-                    $isProductLocked = \App\Helpers\Warehouse\PpiSpiHelper::isLockedForCurrentUser($spi->id, 'Spi');
+                    // Get current SPI status
+                    $lastSpiStatus = $Model('PpiSpiStatus')::where('ppi_spi_id', $spi->id)
+                        ->where('status_for', 'Spi')
+                        ->where('status_format', 'Main')
+                        ->orderBy('id', 'desc')
+                        ->first();
+                    
+                    // Get current user roles
+                    $userRoles = DB::table('role_users')
+                        ->join('roles', 'roles.id', '=', 'role_users.role_id')
+                        ->where('role_users.user_id', auth()->user()->id)
+                        ->pluck('roles.code')
+                        ->toArray();
+                    
+                    $isBoss = in_array('boss', $userRoles);
+                    $isWhManager = in_array('warehouse_manager', $userRoles) || in_array('wh_manager', $userRoles);
+                    
+                    // Check if SPI is locked for current user
+                    $bossLockedStatuses = ['spi_sent_to_wh_manager', 'spi_resent_to_wh_manager', 'spi_ready_to_physical_validation', 'spi_all_steps_complete'];
+                    $isProductLocked = false;
+                    
+                    if ($lastSpiStatus && in_array($lastSpiStatus->code, $bossLockedStatuses)) {
+                        if ($isBoss) {
+                            // Boss is locked unless there's a dispute
+                            if (!in_array($lastSpiStatus->code, ['spi_dispute_by_wh_manager', 'spi_correction_done_by_boss'])) {
+                                $isProductLocked = true;
+                            }
+                        }
+                        // WH Manager can edit when sent to them
+                    }
                 @endphp
                 @if(!$isProductLocked)
                     <a title="Edit" class="edit text-info font-14" href="javascript:void(0)" data-product-id="{{ $product->id }}">
@@ -143,8 +197,26 @@
             </td>
 
             <!-- Quantity (Editable) -->
+            @php
+                // Get the actual quantity from temporary_stocks (manager's confirmed quantity)
+                $tempStock = DB::table('temporary_stocks')
+                    ->where('spi_product_id', $product->id)
+                    ->where('action_format', 'Spi')
+                    ->first();
+                
+                $displayQty = $product->qty; // Default to spi_products qty
+                
+                // If temporary_stocks exists, use the manager's confirmed quantity
+                if ($tempStock) {
+                    $displayQty = $tempStock->waiting_stock_out;
+                }
+            @endphp
             <td class="qty p-1 {{!empty($Model('PpiSpiDispute')::checkProductForDispute('Spi', $spi->id, $product->id, 'qty')) ? 'text-danger fw-bold' : '' }}">
-                <input type="number" class="form-control form-control-sm qty-input" value="{{ $product->qty }}" min="1" data-old-value="{{ $product->qty }}" data-product-id="{{ $product->id }}" data-max-available="{{ $stockNumeric }}" {{ $isProductLocked ? 'disabled' : '' }}>
+                @if($isProductLocked)
+                    <span class="badge bg-secondary">{{ $displayQty }} (Readonly)</span>
+                @else
+                    <input type="number" class="form-control form-control-sm qty-input" value="{{ $displayQty }}" min="1" data-old-value="{{ $displayQty }}" data-product-id="{{ $product->id }}" data-max-available="{{ $stockNumeric }}">
+                @endif
                 @php
                     // Get user roles to check if boss
                     $userRolesForButtonCheck = DB::table('role_users')->join('roles', 'roles.id', '=', 'role_users.role_id')
@@ -153,12 +225,12 @@
                     $isBossForButtons = isset($userRolesForButtonCheck['boss']) || in_array('Boss', $userRolesForButtonCheck);
                 @endphp
                 @if($isQtyExceeded && $isBossForButtons)
-                    <small class="text-danger fw-bold d-block mt-1">⚠ Shortfall: {{ $qtyRequested - $stockNumeric }} units</small>
+                    <small class="text-danger fw-bold d-block mt-1">⚠ Shortfall: {{ $qtyRequested - $availableForThisRow }} units</small>
                     <div class="mt-1 d-flex gap-2">
-                        <button type="button" class="btn btn-sm btn-warning adjust-to-available" data-product-id="{{ $product->id }}" data-max-available="{{ $stockNumeric }}">
+                        <button type="button" class="btn btn-sm btn-warning adjust-to-available" data-product-id="{{ $product->id }}" data-max-available="{{ $availableForThisRow }}">
                             <i class="fas fa-sync"></i> Adjust
                         </button>
-                        <button type="button" class="btn btn-sm btn-info add-from-another-ppi" data-product-id="{{ $product->product_id }}" data-ppi-id="{{ $product->ppi_id }}" data-product-name="{{ $product->product_name }}" data-shortfall="{{ $qtyRequested - $stockNumeric }}" data-bs-toggle="modal" data-bs-target="#alternativePpiModal">
+                        <button type="button" class="btn btn-sm btn-info add-from-another-ppi" data-product-id="{{ $product->product_id }}" data-ppi-id="{{ $product->ppi_id }}" data-product-name="{{ $product->product_name }}" data-shortfall="{{ $qtyRequested - $availableForThisRow }}" data-bs-toggle="modal" data-bs-target="#alternativePpiModal">
                             <i class="fas fa-plus-circle"></i> Add from other PPI
                         </button>
                     </div>
@@ -176,7 +248,11 @@
 
             <!-- Price (Editable) -->
             <td class="price p-1 ppi_product_price_show {{!empty($Model('PpiSpiDispute')::checkProductForDispute('Spi', $spi->id, $product->id, 'price')) ? 'text-danger fw-bold' : '' }}">
-                <input type="number" class="form-control form-control-sm unit-price-input" value="{{ $product->unit_price }}" step="0.01" min="0" data-old-value="{{ $product->unit_price }}" data-product-id="{{ $product->id }}" {{ $isProductLocked ? 'disabled' : '' }}>
+                @if($isProductLocked)
+                    <span class="badge bg-secondary">{{ number_format($product->unit_price, 2) }} (Readonly)</span>
+                @else
+                    <input type="number" class="form-control form-control-sm unit-price-input" value="{{ $product->unit_price }}" step="0.01" min="0" data-old-value="{{ $product->unit_price }}" data-product-id="{{ $product->id }}">
+                @endif
             </td>
 
             <!-- PPI ID -->
@@ -201,6 +277,22 @@
                 {{ $siteCode }}
             </td>
 
+            <!-- Project -->
+            <td style="background-color: #f0fff8; font-weight: bold; font-size: 12px; text-align: center;">
+                @php
+                    $projectName = 'N/A';
+                    if($product->ppi_id) {
+                        $ppiSpi = DB::table('ppi_spis')
+                            ->where('id', $product->ppi_id)
+                            ->first();
+                        if($ppiSpi) {
+                            $projectName = $ppiSpi->project ?? 'N/A';
+                        }
+                    }
+                @endphp
+                <span class="badge bg-info">{{ $projectName }}</span>
+            </td>
+
             @php
                 // Detect if current user is Boss (for Stock In Hand display)
                 $userRoles = DB::table('role_users')->join('roles', 'roles.id', '=', 'role_users.role_id')
@@ -208,31 +300,31 @@
                     ->pluck('roles.name', 'roles.code')->toArray();
                 $isBossUser = isset($userRoles['boss']) || in_array('Boss', $userRoles);
                 
-                // Total QTY in this specific PPI for this product
-                $totalQtyInThisPpi = 0;
+                // Check if user has Managers As SM role (code: managers_as_sm)
+                $isManagersSM = isset($userRoles['managers_as_sm']) || in_array('Managers As SM', $userRoles);
                 
-                // Get the actual PPI ID from ppi_products table using ppi_product_id
-                if($product->ppi_product_id) {
-                    $actualPpiProduct = DB::table('ppi_products')
-                        ->where('id', $product->ppi_product_id)
-                        ->first();
-                    
-                    if($actualPpiProduct) {
-                        $totalQtyInThisPpi = $actualPpiProduct->qty ?? 0;
-                    }
-                }
+                // Hide Stock in Hand if user is Managers As SM
+                $showStockInHand = $isBossUser && !$isManagersSM;
+                
+                // Total QTY in this specific PPI for this product
+                // Sum all ppi_products entries for this product_id in this PPI
+                $totalQtyInThisPpi = DB::table('ppi_products')
+                    ->where('ppi_id', $product->ppi_id)
+                    ->where('product_id', $product->product_id)
+                    ->sum('qty') ?? 0;
 
-                // Total QTY in this specific SPI for this product
+                // Total QTY in this specific SPI for this product (from this specific PPI only)
                 $totalQtyInThisSpi = DB::table('spi_products')
                     ->where('spi_id', $spi->id)
                     ->where('product_id', $product->product_id)
+                    ->where('ppi_id', $product->ppi_id)
                     ->sum('qty') ?? 0;
 
                 // Stock in Hand = Total in PPI - Total in SPI
                 $stockInHandCalculated = $totalQtyInThisPpi - $totalQtyInThisSpi;
             @endphp
 
-            @if($isBossUser)
+            @if($showStockInHand)
                 <!-- Total QTY in this PPI -->
                 <td style="background-color: #ffe8e8; font-weight: bold; text-align: center;">
                     {{ $totalQtyInThisPpi }}
@@ -251,7 +343,11 @@
 
             <!-- Notes (Editable) -->
             <td class="note p-1">
-                <input type="text" class="form-control form-control-sm notes-input" placeholder="Notes" value="{{ $product->note ?? '' }}" data-old-value="{{ $product->note ?? '' }}" data-product-id="{{ $product->id }}" {{ $isProductLocked ? 'disabled' : '' }}>
+                @if($isProductLocked)
+                    <span class="badge bg-secondary">{{ $product->note ?? 'N/A' }} (Readonly)</span>
+                @else
+                    <input type="text" class="form-control form-control-sm notes-input" placeholder="Notes" value="{{ $product->note ?? '' }}" data-old-value="{{ $product->note ?? '' }}" data-product-id="{{ $product->id }}">
+                @endif
             </td>
 
             <!-- From Warehouse -->

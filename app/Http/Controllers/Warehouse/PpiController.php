@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use App\Models\PpiSpi;
+use App\Models\PpiProduct;
 use App\Helpers\Warehouse\PpiSpiHelper;
 use App\Models\PpiSpiStatus;
 use App\Models\PpiSpiDispute;
@@ -87,6 +88,12 @@ class PpiController extends SingleWarehouseController
         }
         $r = $this->Model('PpiSpiSource')::insert($sources);
         try {
+            /**Create Ppi DRAFT Status First */
+            $this->ppiSpiStatusController->ppiActionStatus([
+                'ppi_id' => $ppi->id,
+                'action' => 'ppi_draft',
+                'redirect' => false
+            ]);
             /**Create Ppi Status */
             $this->ppiSpiStatusController->ppiActionStatus([
                 //'wh_id' => $this->wh_code,
@@ -150,17 +157,42 @@ class PpiController extends SingleWarehouseController
             return redirect()->back()
                 ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Ppi')]);
         }
+        
         $data = $this->model::find($id);
-        $done = $data->delete();
-        if ($done) {
-            PpiSpiStatus::where('status_for', 'Ppi')->where('ppi_spi_id', $id)->delete();
-            $this->Model('ProductStock')::where('action_format', 'Ppi')->where('ppi_spi_id', $id)->delete();
-
-            // Delete From Temporary STock
-            $this->Model('TemporaryStock')::where('action_format', 'Ppi')->where('ppi_spi_id', $id)->delete() ?? null;
-
+        
+        if (!$data) {
+            return redirect()->back()->with(['status' => 0, 'message' => 'PPI not found']);
         }
-        return redirect()->back()->with(['status' => 1, 'message' => 'Successfully deleted']);
+        
+        // ⭐ First, delete all ppi_products records for this PPI
+        // Using direct query to ensure it works
+        $ppiProductsCount = DB::table('ppi_products')->where('ppi_id', $id)->count();
+        DB::table('ppi_products')->where('ppi_id', $id)->delete();
+        
+        \Log::info("🗑️ PPI Products Deleted", [
+            'ppi_id' => $id,
+            'ppi_products_deleted' => $ppiProductsCount
+        ]);
+        
+        // Delete the PPI itself
+        $done = $data->delete();
+        
+        if ($done) {
+            // Clean up related records
+            PpiSpiStatus::where('status_for', 'Ppi')->where('ppi_spi_id', $id)->delete();
+            DB::table('product_stocks')->where('action_format', 'Ppi')->where('ppi_spi_id', $id)->delete();
+            DB::table('temporary_stocks')->where('action_format', 'Ppi')->where('ppi_spi_id', $id)->delete();
+            
+            \Log::info("✅ PPI Deleted Successfully", [
+                'ppi_id' => $id,
+                'ppi_products_deleted' => $ppiProductsCount
+            ]);
+            
+            return redirect()->back()->with(['status' => 1, 'message' => "✅ PPI deleted - $ppiProductsCount products removed from lists permanently"]);
+        }
+        
+        \Log::error("❌ PPI Deletion Failed", ['ppi_id' => $id]);
+        return redirect()->back()->with(['status' => 0, 'message' => '❌ Failed to delete PPI']);
     }
 
     /**

@@ -92,7 +92,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.success && data.ppis && data.ppis.length > 0) {
                     // Dispatch event to render PPI list
                     window.dispatchEvent(new CustomEvent('renderPpiList', {
-                        detail: { ppis: data.ppis }
+                        detail: { 
+                            ppis: data.ppis,
+                            is_subordinate_manager: data.is_subordinate_manager,
+                            is_managers_as_sm: data.is_managers_as_sm
+                        }
                     }));
                     if (ppiListEmpty) {
                         ppiListEmpty.style.display = 'none';

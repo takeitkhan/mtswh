@@ -331,7 +331,18 @@ function DeleteconfirmAlertCustom(formId = null){
           subtitle: null,
           onOk: function(){
               //$('#'+formId+' form').submit();
-              $('form#'+formId).submit();
+              const form = $('form#'+formId);
+              
+              // Add submit event to reload page after form submission
+              form.on('submit', function(e) {
+                  // Allow form to submit
+                  setTimeout(() => {
+                      console.log('Reloading page after delete...');
+                      location.reload();
+                  }, 500);
+              });
+              
+              form.submit();
           },
           onCancel: null,
           okText: 'Confirm',

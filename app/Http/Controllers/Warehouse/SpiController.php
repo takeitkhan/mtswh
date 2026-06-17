@@ -89,6 +89,11 @@ class SpiController extends SingleWarehouseController
         }
         $r = $this->Model('PpiSpiSource')::insert($sources);
         $this->ppiSpiStatusController->spiActionStatus([
+            'spi_id' => $spi->id,
+            'action' => 'spi_draft',
+            'redirect' => false
+        ]);
+        $this->ppiSpiStatusController->spiActionStatus([
             //'wh_id' => $this->wh_code,
             'spi_id' => $spi->id,
             'action' => 'spi_created',
@@ -114,23 +119,40 @@ class SpiController extends SingleWarehouseController
     public function edit($wh_code, $id)
     {
         $spi = $this->model::find($id);
-        
-        // Authorization check: Boss can only access SPI if it's sent to them
         $user = auth()->user();
-        if ($user && $this->isBossUser($user)) {
-            $lastStatus = PpiSpiStatus::where('ppi_spi_id', $id)
-                ->where('status_for', 'Spi')
-                ->where('status_format', 'Main')
-                ->orderBy('id', 'desc')
-                ->first();
-            
-            // Boss can only access if SPI has been "sent to boss"
-            if (!$lastStatus || $lastStatus->code !== 'spi_sent_to_boss') {
-                abort(403, 'You do not have permission to access this SPI. It must be sent to you by the creator first.');
+        
+        // Get current SPI status
+        $lastStatus = PpiSpiStatus::where('ppi_spi_id', $id)
+            ->where('status_for', 'Spi')
+            ->where('status_format', 'Main')
+            ->orderBy('id', 'desc')
+            ->first();
+        
+        // Get user roles
+        $userRoles = DB::table('role_users')
+            ->join('roles', 'roles.id', '=', 'role_users.role_id')
+            ->where('role_users.user_id', $user->id)
+            ->pluck('roles.code')
+            ->toArray();
+        
+        $isBoss = in_array('boss', $userRoles);
+        $isWhManager = in_array('warehouse_manager', $userRoles) || in_array('wh_manager', $userRoles);
+        
+        // Check if locked
+        $isLocked = false;
+        $bossLockedStatuses = ['spi_sent_to_wh_manager', 'spi_resent_to_wh_manager', 'spi_ready_to_physical_validation', 'spi_all_steps_complete'];
+        
+        if ($lastStatus && in_array($lastStatus->code, $bossLockedStatuses)) {
+            // Boss is locked when status is sent to WH Manager
+            if ($isBoss) {
+                // Unless there's an active dispute
+                if (!in_array($lastStatus->code, ['spi_dispute_by_wh_manager', 'spi_correction_done_by_boss'])) {
+                    $isLocked = true;
+                }
             }
+            // WH Manager can edit when sent to them
         }
         
-        $isLocked = PpiSpiHelper::isLockedForCurrentUser($id, 'Spi');
         return view('admin.pages.warehouse.single.spi.form', ['spi' => $spi, 'readonly' => $isLocked]);
     }
 
@@ -161,22 +183,6 @@ class SpiController extends SingleWarehouseController
     public function update(Request $request)
     {
         $spiId = $request->spi_id ?? $request->id;
-        
-        // Authorization check: Boss can only update SPI if it's sent to them
-        $user = auth()->user();
-        if ($user && $this->isBossUser($user)) {
-            $lastStatus = PpiSpiStatus::where('ppi_spi_id', $spiId)
-                ->where('status_for', 'Spi')
-                ->where('status_format', 'Main')
-                ->orderBy('id', 'desc')
-                ->first();
-            
-            // Boss can only update if SPI has been "sent to boss"
-            if (!$lastStatus || $lastStatus->code !== 'spi_sent_to_boss') {
-                return redirect()->back()
-                    ->with(['status' => 0, 'message' => 'You do not have permission to update this SPI. It must be sent to you by the creator first.']);
-            }
-        }
         
         if (PpiSpiHelper::isLockedForCurrentUser($spiId, 'Spi')) {
             return redirect()->back()
@@ -451,12 +457,27 @@ class SpiController extends SingleWarehouseController
                 })
                 ->exists();
 
+            // Check if user is Managers As SM
+            $isManagersSM = DB::table('role_users')
+                ->join('roles', 'roles.id', '=', 'role_users.role_id')
+                ->where('role_users.user_id', auth()->user()->id)
+                ->where(function($query) {
+                    $query->where('roles.code', 'managers_as_sm')
+                        ->orWhere('roles.name', 'Managers As SM');
+                })
+                ->exists();
+
+            // Hide stock info if user is Subordinate Manager or Managers As SM
+            $hideStockInfo = $isSubordinateManager || $isManagersSM;
+
             // Get PPIs for this product from different warehouses
             // PPIs are products that are in stock in different warehouses/suppliers
+            // Only get non-deleted PPIs using SoftDeletes scope
             $ppis = $this->Model('PpiProduct')::where('product_id', $product_id)
+                ->whereNull('deleted_at')  // Explicitly filter out soft-deleted PPIs
                 ->with([
                     'ppiSpi' => function($q) {
-                        $q->select('id', 'warehouse_id');
+                        $q->select('id', 'warehouse_id', 'project');
                         $q->with(['warehouse:id,name,code']);
                     }
                 ])
@@ -464,20 +485,54 @@ class SpiController extends SingleWarehouseController
                 ->orderBy('unit_price', 'asc')
                 ->get();
 
-            // Pending SPI allocations (not yet released from stock) per ppi_product_id
-            $ppiIds = $ppis->pluck('id')->all();
-            $pendingByPpi = [];
-            if (!empty($ppiIds)) {
-                $pending = DB::table('spi_products')
-                    ->join('temporary_stocks', function ($j) {
-                        $j->on('temporary_stocks.spi_product_id', '=', 'spi_products.id')
-                          ->where('temporary_stocks.action_format', '=', 'Spi');
-                    })
-                    ->whereIn('spi_products.ppi_product_id', $ppiIds)
-                    ->groupBy('spi_products.ppi_product_id')
-                    ->selectRaw('spi_products.ppi_product_id, SUM(temporary_stocks.waiting_stock_out) as pending_qty')
-                    ->pluck('pending_qty', 'ppi_product_id');
-                $pendingByPpi = $pending->toArray();
+            // FIRST FILTER: Exclude PPIs that have action_format='Ppi' in temporary_stocks
+            $ppiSpiIds = $ppis->pluck('ppi_id')->all();
+            $ppisInTemporaryWithActionPpi = [];
+            
+            if (!empty($ppiSpiIds)) {
+                // Get all ppi_spi_ids that have action_format='Ppi' in temporary_stocks
+                $ppisWithActionPpi = DB::table('temporary_stocks')
+                    ->whereIn('ppi_spi_id', $ppiSpiIds)
+                    ->where('action_format', 'Ppi')
+                    ->distinct()
+                    ->pluck('ppi_spi_id')
+                    ->toArray();
+                $ppisInTemporaryWithActionPpi = $ppisWithActionPpi;
+            }
+
+            // Filter out PPIs that have action_format='Ppi' in temporary_stocks
+            $ppis = $ppis->reject(function ($ppi) use ($ppisInTemporaryWithActionPpi) {
+                return in_array($ppi->ppi_id, $ppisInTemporaryWithActionPpi);
+            });
+
+            // SECOND FILTER: For remaining PPIs, calculate available quantity
+            // Get waiting_stock_out from temporary_stocks (action_format='Spi' only)
+            $ppiSpiIds = $ppis->pluck('ppi_id')->all();
+            $waitingStockOutByPpiSpiId = [];
+            
+            if (!empty($ppiSpiIds)) {
+                // Get waiting_stock_out from temporary_stocks WHERE action_format='Spi' AND ppi_spi_id=X
+                $waitingStock = DB::table('temporary_stocks')
+                    ->whereIn('ppi_spi_id', $ppiSpiIds)
+                    ->where('action_format', 'Spi')
+                    ->groupBy('ppi_spi_id')
+                    ->selectRaw('ppi_spi_id, SUM(waiting_stock_out) as waiting_qty')
+                    ->pluck('waiting_qty', 'ppi_spi_id');
+                $waitingStockOutByPpiSpiId = $waitingStock->toArray();
+            }
+
+            // Get already stocked out from product_stocks (action_format='Spi' only)
+            $stockedOutByPpiSpiId = [];
+            
+            if (!empty($ppiSpiIds)) {
+                // Get already stocked out from product_stocks WHERE action_format='Spi' AND ppi_spi_id=X
+                $stockedOut = DB::table('product_stocks')
+                    ->whereIn('ppi_spi_id', $ppiSpiIds)
+                    ->where('action_format', 'Spi')
+                    ->groupBy('ppi_spi_id')
+                    ->selectRaw('ppi_spi_id, SUM(qty) as stocked_out_qty')
+                    ->pluck('stocked_out_qty', 'ppi_spi_id');
+                $stockedOutByPpiSpiId = $stockedOut->toArray();
             }
 
             $ppiList = [];
@@ -489,10 +544,25 @@ class SpiController extends SingleWarehouseController
                     $warehouseName = $ppi->ppiSpi->warehouse->name;
                 }
 
-                $pendingQty = (float) ($pendingByPpi[$ppi->id] ?? 0);
-                $stockInHand = max(0, (float) ($ppi->quantity_in_stock ?? 0) - $pendingQty);
+                // Calculate reserved quantities using ppi_spi_id (not ppi_product_id)
+                // Only considering action_format='Spi' entries
+                $waitingQty = (float) ($waitingStockOutByPpiSpiId[$ppi->ppi_id] ?? 0);
+                $stockedOutQty = (float) ($stockedOutByPpiSpiId[$ppi->ppi_id] ?? 0);
+                $totalInPpi = (float) ($ppi->quantity_in_stock ?? 0);
+                
+                // Total reserved = waiting_stock_out (Spi) + already_stocked_out (Spi)
+                $totalReserved = $waitingQty + $stockedOutQty;
+                
+                // Condition: PPI.quantity > totalReserved
+                // If this condition is NOT met, skip PPI (don't show it)
+                if ($totalInPpi <= $totalReserved) {
+                    continue;
+                }
 
                 // For now, use warehouse as supplier (you can extend this later)
+                // Calculate available quantity for frontend display
+                $availableQty = $totalInPpi - $totalReserved;
+                
                 $ppiItem = [
                     'ppi_id' => (int)$ppi->ppi_id,  // এটাই আসল PPI ID যা PpiSpi reference করে
                     'ppi_product_id' => (int)$ppi->id,  // এটা PpiProduct এর id
@@ -503,13 +573,19 @@ class SpiController extends SingleWarehouseController
                     'health_status' => $ppi->health_status ?? 'Useable',
                     'unit_price' => floatval($ppi->unit_price ?? 0),
                     'ppi_spi_id' => $ppi->ppi_id,
+                    'project' => $ppi->ppiSpi?->project ?? 'N/A',  // Add project from PpiSpi
+                    'total_in_ppi' => $totalInPpi,
+                    'already_stocked_out' => $stockedOutQty,
+                    'waiting_to_stock_out' => $waitingQty,
+                    'available_qty' => $availableQty,  // Available = Total - (Waiting + Stocked Out)
                 ];
 
-                // Hide stock_in_hand from Subordinate Manager
-                if ($isSubordinateManager) {
-                    $ppiItem['stock_in_hand'] = null;  // Don't show stock info
+                // Hide stock_in_hand from Subordinate Manager and Managers As SM
+                // Note: Don't hide available_qty - it's needed for frontend validation
+                if ($hideStockInfo) {
+                    $ppiItem['stock_in_hand'] = null;  // Don't show stock info to Subordinate Manager or Managers As SM
                 } else {
-                    $ppiItem['stock_in_hand'] = $stockInHand;
+                    $ppiItem['stock_in_hand'] = $availableQty;  // Show to regular managers
                 }
 
                 $ppiList[] = $ppiItem;
@@ -524,17 +600,21 @@ class SpiController extends SingleWarehouseController
                     'unit' => $product->unit ?? 'pcs',
                 ],
                 'is_subordinate_manager' => $isSubordinateManager,  // Pass this to frontend
+                'is_managers_as_sm' => $isManagersSM,  // Pass Managers As SM status
                 // DEBUG INFO
                 'debug' => [
                     'user_id' => auth()->user()->id,
                     'user_name' => auth()->user()->name,
                     'is_subordinate_manager' => $isSubordinateManager,
+                    'is_managers_as_sm' => $isManagersSM,
                     'all_user_roles' => DB::table('role_users')
                         ->join('roles', 'roles.id', '=', 'role_users.role_id')
                         ->where('role_users.user_id', auth()->user()->id)
                         ->pluck('roles.name', 'roles.code')->toArray()
                 ]
-            ]);
+            ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+              ->header('Pragma', 'no-cache')
+              ->header('Expires', '0');
         } catch (\Exception $e) {
             \Log::error('getPpiListForProduct Error: ' . $e->getMessage());
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -707,28 +787,17 @@ class SpiController extends SingleWarehouseController
                 ]);
             }
 
-            // Get all issued SPI quantities for this product (completed + pending)
+            // Get all issued SPI quantities for this product (confirmed SPI records only)
+            // From spi_products table - these are the actual issued quantities
             $allSpiQty = DB::table('spi_products')
                 ->where('spi_products.product_id', $product_id)
                 ->groupBy('spi_products.ppi_product_id')
                 ->selectRaw('spi_products.ppi_product_id, SUM(spi_products.qty) as total_qty')
                 ->pluck('total_qty', 'ppi_product_id');
-            
-            // Get all pending SPI quantities for this product (using temporary_stocks - awaiting stock out)
-            $pendingSpiQty = DB::table('spi_products')
-                ->join('temporary_stocks', function($j) {
-                    $j->on('temporary_stocks.spi_product_id', '=', 'spi_products.id')
-                      ->where('temporary_stocks.action_format', '=', 'Spi');
-                })
-                ->where('spi_products.product_id', $product_id)
-                ->groupBy('spi_products.ppi_product_id')
-                ->selectRaw('spi_products.ppi_product_id, SUM(temporary_stocks.waiting_stock_out) as pending_qty')
-                ->pluck('pending_qty', 'ppi_product_id');
 
             \Log::info('getAlternativePpis Stock Calculation', [
                 'product_id' => $product_id,
-                'all_spi_qty' => $allSpiQty->toArray(),
-                'pending_spi_qty' => $pendingSpiQty->toArray()
+                'all_spi_qty' => $allSpiQty->toArray()
             ]);
 
             $ppis = [];
@@ -736,14 +805,12 @@ class SpiController extends SingleWarehouseController
                 $warehouse = DB::table('warehouses')->find($ppiProduct->warehouse_id);
                 
                 // Calculate Stock in Hand
-                // Total Issued (both completed and pending)
+                // Only use spi_products (confirmed issued), ignore temporary_stocks (pending)
                 $totalIssuedQty = (float)($allSpiQty[$ppiProduct->id] ?? 0);
-                // Pending only
-                $pendingQty = (float)($pendingSpiQty[$ppiProduct->id] ?? 0);
-                // Completed = Total Issued - Pending
-                $completedQty = $totalIssuedQty - $pendingQty;
                 
                 $ppiQty = (float)($ppiProduct->qty ?? 0);
+                // Stock Available = Total PPI qty - Confirmed issued qty
+                // Don't deduct temporary_stocks pending as it will be moved to spi_products later
                 $stockInHand = max(0, $ppiQty - $totalIssuedQty);
                 
                 // Only include if stock in hand is greater than 0
@@ -754,11 +821,10 @@ class SpiController extends SingleWarehouseController
                         'product_id' => $ppiProduct->product_id,
                         'warehouse_id' => $ppiProduct->warehouse_id,
                         'warehouse_name' => $warehouse->name ?? 'Unknown',
-                        'stock_available' => $stockInHand, // Actual available stock after deducting all issued (completed + pending)
+                        'stock_available' => $stockInHand, // Available after confirmed issued qty
                         'unit_price' => $ppiProduct->unit_price ?? 0,                        
                         'debug_ppi_qty' => $ppiQty,
-                        'debug_completed_qty' => $completedQty,
-                        'debug_pending_qty' => $pendingQty
+                        'debug_issued_qty' => $totalIssuedQty
                     ];
                 }
             }

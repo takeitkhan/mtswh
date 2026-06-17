@@ -168,7 +168,7 @@
                                     @if ($ppiLastStatusCode == 'spi_agreed_no_dispute')
                                         <div id="btnWrapperBarcodeStockIn" class="d-inline-block">
                                             @if($barcode_format == 'Tag' || $barcode_format ==  'Bundle-Tag')
-
+                                                <a class="btn btn-sm btn-primary py-0" type="button" onclick="PrintDiv()">Start to Print Barcode Tag</a>
                                             @endif
                                             @if($spi->transferable == 'yes')
                                                 <span class="alert-warning">Transferable Spi does not allow to single Stock out. Please back to complete the Spi</span>
@@ -249,6 +249,29 @@
                         </tbody>
                     </table>
 
+                    <!--==============================
+                    ======= Print Barcode Section =====
+                    =============================-->
+                    @if($barcode_format == 'Tag' || $barcode_format == 'Bundle-Tag')
+                        <div id="printDiv" style="display:none;">
+                            <style>
+                                body.print-mode { 
+                                    margin: 0; 
+                                    padding: 10px;
+                                }
+                                @media print {
+                                    body {
+                                        margin: 0;
+                                        padding: 0;
+                                    }
+                                }
+                            </style>
+                            @foreach ($forPrint as $barcode)
+                                {!! $barcode !!}
+                            @endforeach
+                        </div>
+                    @endif
+
                     <?php /*
                     ppi_spi_status_id<br/> kon action perform korsi tar id
                     ppi_spi_id<br/> eta ppi hole ppi id / spi hole spi id
@@ -307,6 +330,15 @@
 
 
 
+        <!--==============================
+        =====================================
+        Existing Product Verification Modal
+        =================================-->
+
+        <div id="reload_modal">
+            <?php echo $Component::bootstrapModal('existingProduct', ['modalHeader' => 'Scan Barcode', 'position' => 'right', 'backdrop' => true, 'saveBtn' => false, 'use' => 'class']); ?>
+        </div>
+
 
         @section('cusjs')
 
@@ -364,285 +396,285 @@
 
 
                 <script>
-                    jQuery(document).ready(function ($) {
-                        /**
-                         * ALl checkbox checked if clickall click
-                         */
-                        $('input#checkAllCheckBox').on('click', function () {
-                            let ifThisChecked = $(this).prop('checked');
-                            if (ifThisChecked) {
-                                $('input#barcode_product_line_item').prop('checked', true)
-                            } else {
-                                $('input#barcode_product_line_item').prop('checked', false)
-                            }
-                        })
+                    // Initialize on DOM ready
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', initializeValidation);
+                    } else {
+                        initializeValidation();
+                    }
 
-
-                        /**
-                         * Button
-                         * */
-                            //If Do Dispute
+                    function initializeValidation() {
+                        // Button definitions
                         let dispute = '<a id="disputeBtn" class="btn btn-sm btn-outline-danger py-0">Dispute</a>';
-                        //If I agreen there areo no dispute
-                        let iAgreeThereAreNoDispute =
-                            '<button type="button" id="noDisputeModal" class="btn btn-sm btn-primary py-0" >Save</button>';
+                        let iAgreeThereAreNoDispute = '<button type="button" id="noDisputeModal" class="btn btn-sm btn-primary py-0">Save</button>';
+                        let iAgreeThereAreNoExisting = '<button type="button" id="noExistingModal" class="btn btn-sm btn-primary py-0">Save</button>';
+                        let printBarcodeStockIn = '<a href="#" id="printBarcodeStockIn" class="btn btn-sm btn-outline-primary py-0">Print Barcode and Stock In</a>';
 
-                        let iAgreeThereAreNoExisting =
-                            '<button type="button" id="noExistingModal" class="btn btn-sm btn-primary py-0" >Save</button>';
-                        // //Print Barcode and Stock In
-                        let printBarcodeStockIn =
-                            '<a href="#" id="printBarcodeStockIn" class="btn btn-sm btn-outline-primary py-0">Print Barcode and Stock In</a>';
-
-                        /** I agree There are no dispute Input Box Action*/
-                        $('input#agreeallok').click(function () {
-                            let chekedIn = $(this).prop('checked');
-                            if (chekedIn) {
-                                //$('#btnWrapper').empty().html(printBarcodeStockIn)
-                                $('#btnWrapper').empty().html(iAgreeThereAreNoDispute)
-                            } else {
-                                disputeBtnLoaded();
-                            }
-                        })
-
-                        /** Dispute form Append on Dispute Modal When Press On Dispute Button*/
-                        //Function for dispute button
+                        // Dispute button loader function
                         function disputeBtnLoaded() {
-                            $('#btnWrapper').empty().html(dispute);
+                            let btnWrapper = document.getElementById('btnWrapper');
+                            if (btnWrapper) btnWrapper.innerHTML = dispute;
                         }
 
+                        // Initialize dispute button
                         disputeBtnLoaded();
 
-                        $('#disputeBtnModalBody').empty().html($('script#disputeForm').html());
+                        // Set dispute form content
+                        let disputeBtnModalBody = document.getElementById('disputeBtnModalBody');
+                        let disputeFormTemplate = document.getElementById('disputeForm');
+                        if (disputeBtnModalBody && disputeFormTemplate) {
+                            disputeBtnModalBody.innerHTML = disputeFormTemplate.innerHTML;
+                        }
 
+                        // Check all checkbox handler
+                        let checkAllCheckBox = document.getElementById('checkAllCheckBox');
+                        if (checkAllCheckBox) {
+                            checkAllCheckBox.addEventListener('click', function() {
+                                let isChecked = this.checked;
+                                document.querySelectorAll('input#barcode_product_line_item').forEach(function(el) {
+                                    el.checked = isChecked;
+                                });
+                            });
+                        }
 
-                        /** I agree There are no Existing Input Box Action*/
-                        $(document).on('click', 'input#agreeNoExisting', function () {
-                            let chekedIn = $(this).prop('checked');
-                            if (chekedIn) {
-                                $('#btnWrapperEx').empty().html(iAgreeThereAreNoExisting)
-                            } else {
-                                $('#btnWrapperEx').empty()
+                        // Agree to no dispute checkbox handler
+                        let agreeAllOkCheckbox = document.getElementById('agreeallok');
+                        if (agreeAllOkCheckbox) {
+                            agreeAllOkCheckbox.addEventListener('click', function() {
+                                let btnWrapper = document.getElementById('btnWrapper');
+                                if (btnWrapper) {
+                                    if (this.checked) {
+                                        btnWrapper.innerHTML = iAgreeThereAreNoDispute;
+                                    } else {
+                                        disputeBtnLoaded();
+                                    }
+                                }
+                            });
+                        }
+
+                        // Agree to no existing checkbox handler
+                        let agreeNoExistingCheckboxes = document.querySelectorAll('input#agreeNoExisting');
+                        agreeNoExistingCheckboxes.forEach(function(checkbox) {
+                            checkbox.addEventListener('click', function() {
+                                let btnWrapperEx = document.getElementById('btnWrapperEx');
+                                if (btnWrapperEx) {
+                                    if (this.checked) {
+                                        btnWrapperEx.innerHTML = iAgreeThereAreNoExisting;
+                                    } else {
+                                        btnWrapperEx.innerHTML = '';
+                                    }
+                                }
+                            });
+                        });
+
+                        // Print barcode and stock in handler
+                        let btnWrapperBarcodeStockIn = document.getElementById('btnWrapperBarcodeStockIn');
+                        if (btnWrapperBarcodeStockIn) {
+                            btnWrapperBarcodeStockIn.addEventListener('click', function(e) {
+                                if (e.target && e.target.id === 'printBarcodeStockIn') {
+                                    e.preventDefault();
+                                    let barcodeRoute = "{{ route('spi_product_stock_out', [request()->get('warehouse_code')]) }}";
+                                    let stockInForm = document.getElementById('ppiFormAction');
+                                    if (stockInForm) {
+                                        stockInForm.action = barcodeRoute;
+                                        let hasChecked = document.querySelector('input#barcode_product_line_item:checked');
+                                        if (typeof confirmAlert === 'function') {
+                                            confirmAlert('Are you ready to stock out the product', '', '#ppiFormAction');
+                                        }
+                                    }
+                                }
+                            });
+                        }
+
+                        // Print Div Function
+                        window.PrintDiv = function() {
+                            let printDiv = document.getElementById('printDiv');
+                            if (printDiv) {
+                                let printContents = printDiv.innerHTML;
+                                let originalContents = document.body.innerHTML;
+                                document.body.innerHTML = printContents;
+                                window.print();
+                                document.body.innerHTML = originalContents;
+                                location.reload();
                             }
-                        })
+                        }
+                    }
+                </script>
 
+                <!--==============================
+                ======= Existing Product Verification ========
+                =============================-->
 
-                        //print Barcode and Stock In Action
+                <script>
+                    /**
+                     * Existing Product Verification
+                     */
+                    let barcodeInputField = '#existingProductBarcode';
+                    let barcodeInputHiddenBarcodeField = '#existingPpiProductHiddenBarcode';
+                    let barcodeInputHiddenOrginalBarcodeField = '#existingPpiProductHiddenOrginalBarcode';
+                    let productIdInputField = '#existingProductId';
+                    let productQtyInputField = '#existingProductQty';
+                    let spiProductIdInputField = '#existingPpiProductId';
+                    let productUniquekeyInputField = '#existingProductUniqueKey';
 
-                        $('div#btnWrapperBarcodeStockIn').on('click', 'a#printBarcodeStockIn', function (e) {
+                    // Event delegation for existing product verify button
+                    document.addEventListener('click', function(e) {
+                        if (e.target && e.target.classList && e.target.classList.contains('existingProduct')) {
                             e.preventDefault();
-                            let barcodeRoute =
-                                "{{ route('spi_product_stock_out', [request()->get('warehouse_code')]) }}";
-                            let stockInForm = 'form#ppiFormAction';
-                            $(stockInForm).attr('action', barcodeRoute)
-                            let productItemCheck = $('input#barcode_product_line_item');
-                            let checkLength = $(productItemCheck).is(':checked');
-                            // alert(checkLength)
-                            confirmAlert('Are you ready to stock out the product', '', '#ppiFormAction');
-                            //$(stockInForm).submit();
-                            //alert(checkLength);
-                            //if (checkLength > 0) {
-                            // $(stockInForm).submit();
-                            //} else {
-                            // alert('You have to select at least one item')
-                            //}
-                            //alert(barcodeRoute)
-                        })
+                            let button = e.target;
+                            let getThisBarcode = button.getAttribute('data-barcode');
+                            let getThisOrginalBarcode = button.getAttribute('data-orginal_barcode');
+                            let getThisProductId = button.getAttribute('data-product_id');
+                            let getThisSpiProductId = button.getAttribute('data-spi_product_id');
+                            let getThisProductUniqueKey = button.getAttribute('data-product_unique_key');
+                            let getThisProductQty = button.getAttribute('data-product_qty');
 
+                            let ExistingModalBody = document.getElementById('existingProductModalBody');
+                            if (ExistingModalBody) {
+                                let ExistingModalHtml = `
+                                    <div class="existingProductModalWrap">
+                                        <div class="form-group">
+                                            <label>Click On Input box before scan Barcode</label>
+                                            <input type="text" class="form-control form-control-sm" value="" id="existingProductBarcode">
+                                        </div>
+                                        <div class="orginalBarcodeShow"></div>
+                                        <input type="hidden" class="form-control form-control-sm" value="${getThisBarcode}" id="existingPpiProductHiddenBarcode">
+                                        <input type="hidden" class="form-control form-control-sm" value="${getThisOrginalBarcode}" id="existingPpiProductHiddenOrginalBarcode">
+                                        <input type="hidden" class="form-control form-control-sm" value="${getThisSpiProductId}" id="existingPpiProductId">
+                                        <input type="hidden" class="form-control form-control-sm" value="${getThisProductQty}" id="existingProductQty">
+                                        <input type="hidden" class="form-control form-control-sm" value="${getThisProductId}" id="existingProductId">
+                                        <input type="hidden" class="form-control form-control-sm" value="${getThisProductUniqueKey}" id="existingProductUniqueKey">
+                                        <div class="saveBtnForExistingProductStockIn"></div>
+                                    </div>
+                                `;
+                                ExistingModalBody.innerHTML = ExistingModalHtml;
+                                let barcodeInput = document.getElementById('existingProductBarcode');
+                                if (barcodeInput) {
+                                    setTimeout(() => barcodeInput.focus(), 100);
+                                }
+                            }
+                        }
+                    });
 
+                    // Existing Product Stock Out Function
+                    function existingStock(hiddenBarcode) {
+                        let barcodeInputElement = document.getElementById('existingProductBarcode');
+                        let barcodeHiddenElement = document.getElementById('existingPpiProductHiddenBarcode');
+                        let barcodeHiddenOrginalElement = document.getElementById('existingPpiProductHiddenOrginalBarcode');
+                        let productIdElement = document.getElementById('existingProductId');
+                        let spiProductIdElement = document.getElementById('existingPpiProductId');
+                        let productQtyElement = document.getElementById('existingProductQty');
+                        let productUniqueKeyElement = document.getElementById('existingProductUniqueKey');
+
+                        if (!barcodeInputElement) return;
+
+                        let barcode = barcodeInputElement.value || '';
+                        let barcodeHidden = barcodeHiddenElement ? barcodeHiddenElement.value : '';
+                        let barcodeHiddenOrginal = barcodeHiddenOrginalElement ? barcodeHiddenOrginalElement.value : '';
+                        let productId = productIdElement ? productIdElement.value : '';
+                        let spiProductId = spiProductIdElement ? spiProductIdElement.value : '';
+                        let productQty = productQtyElement ? productQtyElement.value : '';
+                        let productUniqueKey = productUniqueKeyElement ? productUniqueKeyElement.value : '';
+
+                        // Close modal if exists
+                        let modal = document.getElementById('existingProductOpenModal');
+                        if (modal && typeof bootstrap !== 'undefined') {
+                            try {
+                                bootstrap.Modal.getInstance(modal)?.hide();
+                            } catch(e) {}
+                        }
+
+                        if (hiddenBarcode && hiddenBarcode === barcodeHidden) {
+                            // Use fetch API instead of $.ajax
+                            fetch('{{ route("ppi_existing_product_check_during_stock", request()->get("warehouse_code")) }}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}'
+                                },
+                                body: JSON.stringify({
+                                    'spi_id': '{{ $spi_id }}',
+                                    'barcode': hiddenBarcode,
+                                    'product_qty': productQty,
+                                    'replace_with_barcode': barcodeHiddenOrginal,
+                                    'product_id': productId,
+                                    'spi_product_id': spiProductId
+                                })
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                console.log(data);
+                                if (data.status == 1) {
+                                    if (typeof toastr !== 'undefined') {
+                                        toastr.success(data.message);
+                                    } else {
+                                        alert(data.message);
+                                    }
+                                    // Reload wrapper
+                                    let reloadWrap = document.getElementById('reload_wrap');
+                                    if (reloadWrap) {
+                                        location.reload();
+                                    }
+                                } else if (data.status == 0) {
+                                    alert(`<h5>${hiddenBarcode}</h5> This product was not found in the Database as Stock Out`);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('An error occurred while processing your request');
+                            });
+                        } else {
+                            alert(`<h5>${barcodeHidden}</h5> You have selected wrong item`);
+                        }
+                    }
+
+                    // Keypress and paste handler for barcode input
+                    document.addEventListener('keypress', function(e) {
+                        if (e.target && e.target.id === 'existingProductBarcode') {
+                            if (e.which === 13) { // Enter key
+                                e.preventDefault();
+                                let hiddenBarcode = document.getElementById('existingPpiProductHiddenBarcode');
+                                if (hiddenBarcode) {
+                                    existingStock(hiddenBarcode.value);
+                                }
+                            }
+                        }
+                    });
+
+                    document.addEventListener('paste', function(e) {
+                        if (e.target && e.target.id === 'existingProductBarcode') {
+                            e.preventDefault();
+                            setTimeout(() => {
+                                let barcodeValue = e.target.value;
+                                let saveBtnDiv = document.querySelector('#reload_modal .saveBtnForExistingProductStockIn');
+                                if (saveBtnDiv) {
+                                    let submitBtn = `<button type="button" class="btn btn-primary btn-sm mt-2" onclick="existingStock('${barcodeValue}')">Submit</button>`;
+                                    saveBtnDiv.innerHTML = submitBtn;
+                                }
+                            }, 100);
+                        }
+                    });
+
+                    // Submit button handler for existing product
+                    document.addEventListener('click', function(e) {
+                        if (e.target && 
+                            e.target.parentElement?.classList?.contains('saveBtnForExistingProductStockIn') ||
+                            e.target.classList?.contains('existingProductSubmit')) {
+                            e.preventDefault();
+                            let hiddenBarcode = document.getElementById('existingPpiProductHiddenBarcode');
+                            if (hiddenBarcode) {
+                                existingStock(hiddenBarcode.value);
+                            }
+                        }
+                    });
+
+                    //Action if click on submit button
+                    $(document).on('click', '#existingProductOpenModal .saveBtnForExistingProductStockIn button', function (e) {
+                        e.preventDefault()
+                        let thisDataInputVal = $(this).data('input_val')
+                        existingStock(thisDataInputVal);
                     })
                 </script>
 
 
-    <?php /*
-
-
-
-    <!--==============================
-    =====================================
-    Existing Product Check Modal
-    =================================-->
-
-
-
-    <div id="reload_modal">
-        <?php echo $Component::bootstrapModal('existingProduct', ['modalHeader' => 'Scan Barcode', 'position' => 'right', 'backdrop' => true, 'saveBtn' => false, 'use' => 'class']); ?>
-    </div>
-
-
-    <script>
-        //Existing Button Action
-
-        //$('button.existingProduct').click(function(){
-        $(document).on('click', 'button.existingProduct', function(e) {
-            e.preventDefault();
-            // alert('ok')
-            let getThisBarcode = $(this).data('barcode');
-            let getThisOrginalBarcode = $(this).data('orginal_barcode');
-            let getThisProductId = $(this).data('product_id');
-            let getThisPpiProductId = $(this).data('spi_product_id');
-            let getThisProductUniqueKey = $(this).data('product_unique_key');
-
-            let ExistingModalBody = '#reload_modal #existingProductModalBody';
-            let ExistingModalHtml = `
-                    <div class="existingProductModalWrap">
-                            <div class="form-group">
-                                <label>Click On Input box before scan Barcode</label>
-                                <input type="text" class="form-control form-control-sm" value="" id="existingProductBarcode">
-                            </div>
-                            <div class="orginalBarcodeShow">
-
-                            </div>
-                            <input type="hidden" class="form-control form-control-sm" value="${getThisBarcode}" id="existingPpiProductHiddenBarcode">
-                            <input type="hidden" class="form-control form-control-sm" value="${getThisOrginalBarcode}" id="existingPpiProductHiddenOrginalBarcode">
-                            <input type="hidden" class="form-control form-control-sm" value="${getThisPpiProductId}" id="existingPpiProductId">
-                            <input type="hidden" class="form-control form-control-sm" value="${getThisProductId}" id="existingProductId">
-                            <input type="hidden" class="form-control form-control-sm" value="${getThisProductUniqueKey}" id="existingProductUniqueKey">
-                            <div class="saveBtnForExistingProductStockIn">
-
-                            <div>
-                    </div>
-            `;
-
-            $(ExistingModalBody).html(ExistingModalHtml);
-            let BarcodeInputTextField = ExistingModalBody + ' input#existingProductBarcode';
-            //$(BarcodeInputTextField).val(getThisBarcode);
-            $(BarcodeInputTextField).val();
-            //$(BarcodeInputTextField).val(getThisBarcode);
-            //$('#reload_me').html();
-        });
-
-
-        let barcodeInputField = '#existingProductModalBody  input#existingProductBarcode';
-        let barcodeInputHiddenBarcodeField = '#existingProductModalBody  input#existingPpiProductHiddenBarcode';
-        let barcodeInputHiddenOrginalBarcodeField = '#existingProductModalBody  input#existingPpiProductHiddenOrginalBarcode';
-        let productIdInputField = '#existingProductModalBody  input#existingProductId';
-        let ppiProductIdInputField = '#existingProductModalBody  input#existingPpiProductId';
-        let ppiProductUniquekeyInputField = '#existingProductModalBody  input#existingProductUniqueKey';
-
-
-        // Barcode reader Apply In Input Field
-        $('#reload_modal').bind('keydown paste', barcodeInputField, function() {
-            //alert($(this).val());
-            let html = '<button type="button" class="btn btn-primary btn-sm mt-2">Submit</button>';
-            $('#reload_modal .saveBtnForExistingProductStockIn').html(html);
-        })
-
-        //Existing Product Stock In Function
-        function existingStock()  {
-            let barcode = $(barcodeInputField).val();
-            let barcodeHidden = $(barcodeInputHiddenBarcodeField).val();
-            let barcodeHiddenOrginal = $(barcodeInputHiddenOrginalBarcodeField).val();
-            let productId = $(productIdInputField).val();
-            let ppiProductId = $(ppiProductIdInputField).val();
-            let productUniqueKey = $(ppiProductUniquekeyInputField).val();
-            //alert(barcodeHiddenOrginal)
-            $('.existingProductOpenModal').modal("hide");
-            if(barcode == barcodeHidden){
-                $.ajax({
-                    url: `{{ route('ppi_existing_product_check_during_stock', request()->get('warehouse_code')) }}`,
-                    //?barcode=${barcode}&&product_id=${productId}&&ppi_product_id=${ppiProductId}
-                    type: 'POST',
-                    //dataType: 'json',
-                    data: {
-                        '_token': '{{ csrf_token() }}',
-                        'ppi_id': '{{ $spi_id }}',
-                        'barcode': barcode,
-                        'orginal_barcode' : barcodeHiddenOrginal,
-                        'product_unique_key' : productUniqueKey,
-                        'product_id': productId,
-                        'spi_product_id': ppiProductId
-                    },
-                    success: function(response) {
-                        console.log(response);
-                        if (response.status == 1) {
-                            toastr.success(response.message);
-                        }
-                        if (response == false) {
-                            //toastr.error('This is product was not found in the Database as Existing');
-                            alert(`<h5>${barcodeHidden}</h5> This product was not found in the Database as Existing`)
-                        }
-
-                        $("#reload_wrap").load(location.href + " #reload_wrap > *");
-                    },
-                });
-            }else {
-                alert(`<h5>${barcodeHidden}</h5>  You have selected wrong item`)
-            }
-        }
-
-        //$("#reload_wrap").load(location.href + " #reload_wrap");
-        //$(document).('load', '#reload_wrap', location.href + " #reload_wrap");
-
-
-        //Action if press enter key
-        //$('#existingProductOpenModal').one('click', '.saveBtnForExistingProductStockIn button', function(e){
-        $(document).on('click', '#existingProductOpenModal .saveBtnForExistingProductStockIn button', function(e) {
-            e.preventDefault()
-            existingStock();
-        })
-        //Action if click on submit button
-        //$('#existingProductOpenModal').one('keypress', barcodeInputField,  function(e){
-        $(document).on('keypress paste', '#existingProductOpenModal ' + barcodeInputField, function(e) {
-            //alert('ok')
-            let key = e.which;
-            $("#existingProductOpenModal .orginalBarcodeShow").empty().html($(barcodeInputHiddenBarcodeField).val())
-            //console.log(key);
-            if (key == 13) {
-                existingStock();
-            }
-        })
-    </script>
-
-
-<?php
-//For Barcode print Modal
-    $modalPrintBtn = '<a class="btn btn-sm btn-primary" type="button" onclick="PrintDiv()">Print</a>';
-
-    echo $Component::bootstrapModal('barcodeForPrint', ['saveBtn' => false, 'modalSize' => 'md', 'modalHeader' => $modalPrintBtn]);
-
- ?>
-
-<script>
-    //Show barcode in Print Modal
-    function forPrintModal() {
-
-        let html = `
-            <div id="printBody" style="margin: 0 auto; width: 288px;">
-                <table style="width: 288px; text-align: center; margin: 0 auto;">
-                    @foreach($forPrint as $key => $data)
-                        @php
-                            if ($key % 2 == 0) {
-                                echo '<tr>';
-                            }
-
-                            echo '<td>';
-                                echo $data;
-                            echo '</td>';
-
-                            if ($key % 2 == 1) {
-                                echo '</tr><tr><td>&nbsp;</td> </tr><tr><td>&nbsp;</td> </tr>';
-                            }
-                        @endphp
-                    @endforeach
-                </table>
-            </div>
-        `;
-        return html;
-    }
-    $('#barcodeForPrintModalBody').empty().append(forPrintModal());
-
-
-
-    //
-    // Print Button Action
-    function PrintDiv() {
-       var divToPrint = document.getElementById('printBody');
-       var popupWin = window.open('', '_blank', 'width=300,height=300');
-            popupWin.document.open();
-            popupWin.document.write('<html><body onload="window.print()">' + divToPrint.innerHTML + '</html>');
-        popupWin.document.close();
-    }
-</script>
-
- */ ?>
-@endsection
+    @endsection

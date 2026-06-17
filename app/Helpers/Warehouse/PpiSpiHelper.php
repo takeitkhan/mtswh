@@ -89,6 +89,13 @@ class PpiSpiHelper
         if (empty($last)) {
             return false;
         }
+
+        // ✅ DRAFT MODE: Not locked if status is draft
+        $draftCodes = ['ppi_draft', 'spi_draft'];
+        if (in_array($last->code, $draftCodes, true)) {
+            return false; // Always unlocked in DRAFT mode
+        }
+
         return in_array($last->code, $lockStatuses, true);
     }
 
@@ -135,6 +142,12 @@ class PpiSpiHelper
             return false;
         }
 
+        // ✅ DRAFT MODE: Not locked if status is draft
+        $draftCodes = ['ppi_draft', 'spi_draft'];
+        if (in_array($lastStatus->code, $draftCodes, true)) {
+            return false; // Always unlocked in DRAFT mode
+        }
+
         $currentUserId = $user->id;
         $recordCreatorId = $record->action_performed_by;
         $lastStatusCode = $lastStatus->code;
@@ -161,6 +174,8 @@ class PpiSpiHelper
 
         if ($actionFormat === 'Spi') {
             $bossLockStatuses = [
+                // Boss locked after sending to WH Manager
+                // UNLESS there's a Dispute (exception handled below)
                 'spi_sent_to_wh_manager',
                 'spi_resent_to_wh_manager',
                 'spi_ready_to_physical_validation',
@@ -219,6 +234,15 @@ class PpiSpiHelper
     public static function ppiStatusHandler()
     {
         $status = [
+            'ppi_draft' => [
+                'key' => 'ppi_draft',
+                'message' => '✏️ PPI in Draft Mode - Edit/Delete Allowed',
+                'status_type' => 'info',
+                'status_format' => 'Main',
+                'is_route' => false,
+                'route_title' => 'Draft Mode',
+                'route_upload' => false,
+            ],
             'ppi_created' => [
                 'key' => 'ppi_created',
                 'message' => 'Ppi created',
@@ -505,6 +529,15 @@ class PpiSpiHelper
     public static function spiStatusHandler()
     {
         $status = [
+            'spi_draft' => [
+                'key' => 'spi_draft',
+                'message' => '✏️ SPI in Draft Mode - Edit/Delete Allowed',
+                'status_type' => 'info',
+                'status_format' => 'Main',
+                'is_route' => false,
+                'route_title' => 'Draft Mode',
+                'route_upload' => false,
+            ],
             'spi_created' => [
                 'key' => 'spi_created',
                 'message' => 'Spi created',
@@ -692,4 +725,56 @@ class PpiSpiHelper
         return $status;
     }
 
+    /**================================
+     * ===== DRAFT MODE HELPERS =======
+     ================================*/
+
+    /**
+     * Check if PPI/SPI is in DRAFT mode
+     * @param int|string $ppiSpiId
+     * @param string $actionFormat 'Ppi' or 'Spi'
+     * @return bool
+     */
+    public static function isDraftMode($ppiSpiId, $actionFormat = 'Ppi')
+    {
+        $lastStatus = PpiSpiStatus::where('ppi_spi_id', $ppiSpiId)
+            ->where('status_for', $actionFormat)
+            ->where('status_format', 'Main')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if (empty($lastStatus)) {
+            return true; // New record is considered as DRAFT
+        }
+
+        $draftCodes = ['ppi_draft', 'spi_draft'];
+        return in_array($lastStatus->code, $draftCodes, true);
+    }
+
+    /**
+     * Check if edit/delete is allowed (only in DRAFT mode)
+     * @param int|string $ppiSpiId
+     * @param string $actionFormat 'Ppi' or 'Spi'
+     * @return bool
+     */
+    public static function canEditDeleteInDraft($ppiSpiId, $actionFormat = 'Ppi')
+    {
+        return self::isDraftMode($ppiSpiId, $actionFormat);
+    }
+
+    /**
+     * Get Draft Status Message for UI display
+     * @param int|string $ppiSpiId
+     * @param string $actionFormat 'Ppi' or 'Spi'
+     * @return string
+     */
+    public static function getDraftStatusMessage($ppiSpiId, $actionFormat = 'Ppi')
+    {
+        if (self::isDraftMode($ppiSpiId, $actionFormat)) {
+            return '✏️ DRAFT - Edit/Delete Allowed until submission';
+        }
+        return '🔒 SUBMITTED - Locked (No Edit/Delete)';
+    }
+
 }
+

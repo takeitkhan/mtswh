@@ -3,9 +3,19 @@
         $spiStatuses = $Model('PpiSpiStatus')::where('ppi_spi_id', $spi_id)
                                         ->orderBy('id', 'desc')->get();
         $spiComplete = $Model('PpiSpiStatus')::getSpiLastMainStatus($spi_id)->code ?? null;
+        $isDraft = \App\Helpers\Warehouse\PpiSpiHelper::isDraftMode($spi_id, 'Spi');
     @endphp
     
-    @if($spiComplete == 'spi_all_steps_complete')
+    @if($isDraft)
+        <div class="alert alert-info mb-3" style="background-color: #d1ecf1; border-color: #bee5eb;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <strong><i class="fa fa-edit me-2"></i>SPI in DRAFT Mode</strong>
+                    <p class="mb-1 small">✏️ This SPI is still in draft mode. You can edit or delete it until submission to your manager.</p>
+                </div>
+            </div>
+        </div>
+    @elseif($spiComplete == 'spi_all_steps_complete')
         <div class="alert alert-success mb-3" style="background-color: #d4edda; border-color: #c3e6cb;">
             <div class="d-flex justify-content-between align-items-center">
                 <div>

@@ -230,6 +230,115 @@ class PpiSpiStatus extends Model
 
 
 
+    /**================================
+     * ===== DRAFT MODE FUNCTIONS ====
+     ================================*/
+
+    /**
+     * DRAFT STATUS CODES
+     * Statuses that allow Edit/Delete
+     */
+    const DRAFT_STATUS_CODES = [
+        'ppi_draft',
+        'spi_draft'
+    ];
+
+    /**
+     * SUBMITTED STATUS CODES
+     * Statuses that DON'T allow Edit/Delete
+     */
+    const SUBMITTED_STATUS_CODES = [
+        'ppi_sent_to_boss',
+        'spi_sent_to_boss',
+        'ppi_sent_to_wh_manager',
+        'spi_sent_to_wh_manager',
+        'ppi_all_steps_complete',
+        'spi_all_steps_complete',
+    ];
+
+    /**
+     * Check if PPI/SPI is in DRAFT mode
+     * @param $ppi_spi_id
+     * @param $status_for - 'Ppi' or 'Spi'
+     * @return bool
+     */
+    public static function isDraft($ppi_spi_id, $status_for = 'Ppi')
+    {
+        $lastStatus = PpiSpiStatus::where('ppi_spi_id', $ppi_spi_id)
+                                ->where('status_for', $status_for)
+                                ->where('status_format', 'Main')
+                                ->orderBy('status_order', 'desc')
+                                ->first();
+
+        if (!$lastStatus) {
+            return true; // New record is considered as draft
+        }
+
+        return in_array($lastStatus->code, self::DRAFT_STATUS_CODES);
+    }
+
+    /**
+     * Check if PPI/SPI is SUBMITTED (cannot edit/delete)
+     * @param $ppi_spi_id
+     * @param $status_for - 'Ppi' or 'Spi'
+     * @return bool
+     */
+    public static function isSubmitted($ppi_spi_id, $status_for = 'Ppi')
+    {
+        return !self::isDraft($ppi_spi_id, $status_for);
+    }
+
+    /**
+     * Check if PPI/SPI can be EDITED
+     * @param $ppi_spi_id
+     * @param $status_for - 'Ppi' or 'Spi'
+     * @return bool
+     */
+    public static function canEdit($ppi_spi_id, $status_for = 'Ppi')
+    {
+        return self::isDraft($ppi_spi_id, $status_for);
+    }
+
+    /**
+     * Check if PPI/SPI can be DELETED
+     * @param $ppi_spi_id
+     * @param $status_for - 'Ppi' or 'Spi'
+     * @return bool
+     */
+    public static function canDelete($ppi_spi_id, $status_for = 'Ppi')
+    {
+        return self::isDraft($ppi_spi_id, $status_for);
+    }
+
+    /**
+     * Get current status information for PPI/SPI
+     * @param $ppi_spi_id
+     * @param $status_for - 'Ppi' or 'Spi'
+     * @return object|null
+     */
+    public static function getCurrentStatus($ppi_spi_id, $status_for = 'Ppi')
+    {
+        return PpiSpiStatus::where('ppi_spi_id', $ppi_spi_id)
+                            ->where('status_for', $status_for)
+                            ->where('status_format', 'Main')
+                            ->orderBy('status_order', 'desc')
+                            ->first();
+    }
+
+    /**
+     * Get Draft Status message for display
+     * @param $ppi_spi_id
+     * @param $status_for - 'Ppi' or 'Spi'
+     * @return string
+     */
+    public static function getDraftStatusMessage($ppi_spi_id, $status_for = 'Ppi')
+    {
+        if (self::isDraft($ppi_spi_id, $status_for)) {
+            return '✏️ DRAFT - Edit/Delete Allowed';
+        }
+        return '🔒 SUBMITTED - Locked (No Edit/Delete)';
+    }
+
     /** Motification */
     public static function notifications($options = []){            	
         $default = [

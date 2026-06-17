@@ -353,7 +353,7 @@ class WarehouseController extends Controller
     public function productStock(Request $request)
     {
         if ($request->product_id) {
-            $product = $this->Model('ProductStockReport')::find($request->product_id);
+            $product = $this->Model('ProductStockReportNew')::find($request->product_id);
             //dd($request);
             return view('admin.pages.warehouse.report.product-stock-details')->with(['product' => $product]);
         } else {

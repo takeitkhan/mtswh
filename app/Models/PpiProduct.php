@@ -4,12 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PpiProduct extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
     protected $table = 'ppi_products';
     protected $fillable = ['ppi_id', 'warehouse_id', 'product_id', 'qty', 'unit_price', 'price', 'product_state', 'health_status', 'note', 'action_performed_by'];
+    
+    // Specify the deleted_at column for SoftDeletes
+    protected $dates = ['deleted_at', 'created_at', 'updated_at'];
 
     public function ppiSpi(){
         return $this->hasOne('\App\Models\PpiSpi', 'id', 'ppi_id');
@@ -54,7 +58,9 @@ class PpiProduct extends Model
      * @return void
      */
     public function SinglePpiProductInfo($product_id){
-        $product = PpiProduct::where('product_id', $product_id)->first();
+        $product = PpiProduct::where('product_id', $product_id)
+                    ->whereNull('deleted_at')
+                    ->first();
         return $product ?? Null;
     }
 
@@ -70,6 +76,7 @@ class PpiProduct extends Model
         $product = PpiProduct::leftjoin('products', 'products.id', 'ppi_products.product_id')
                     ->select('ppi_products.*', 'ppi_products.id as ppi_product_id', 'products.id as product_id', 'products.name as product_name', 'products.unit_id as product_unit_id', 'products.barcode_format as barcode_format')
                     ->where('ppi_products.ppi_id', $ppi_id)
+                    ->whereNull('ppi_products.deleted_at')
                     ->get();
         return $product ?? Null;
     }
@@ -89,6 +96,7 @@ class PpiProduct extends Model
         $product = PpiProduct::leftjoin('products', 'products.id', 'ppi_products.product_id')
                     ->select('ppi_products.*',  'ppi_products.id as ppi_product_id', 'products.id as product_id', 'products.name as product_name', 'products.unit_id as product_unit_id', 'products.barcode_format as barcode_format')
                     ->where('ppi_products.id', $ppi_product_id)
+                    ->whereNull('ppi_products.deleted_at')
                     ->first();
         if($product){
             if($merge['column']){

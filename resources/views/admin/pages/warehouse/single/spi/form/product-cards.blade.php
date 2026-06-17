@@ -212,6 +212,7 @@ function attachRowEvents(row) {
     // Delete button
     const deleteBtn = row.querySelector('.delete-product');
     deleteBtn.addEventListener('click', function() {
+        // Show confirmation dialog
         if (!confirm('Are you sure you want to delete this product?')) {
             return;
         }
@@ -247,9 +248,10 @@ function attachRowEvents(row) {
         .then(response => response.json())
         .then(data => {
             if (data.success || data.status === true) {
-                showAlert('Product removed successfully!', 'success');
-                row.remove();
-                checkAndShowEmptyMessage();
+                // Reload page after successful delete
+                setTimeout(() => {
+                    location.reload();
+                }, 200);
             } else {
                 showAlert(data.message || 'Failed to remove product', 'danger');
                 deleteBtn.disabled = false;

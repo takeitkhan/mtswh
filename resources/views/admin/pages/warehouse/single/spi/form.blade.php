@@ -40,7 +40,7 @@
         $isReadOnly = $readonly ?? false;
         if (!empty($spi)) {
             $routeUrl = route('spi_update', $warehouse_code);
-            $disabled = $isReadOnly ? 'disabled' : 'disabled';
+            $disabled = $isReadOnly ? 'disabled' : '';
         } else {
             $routeUrl = route('spi_store', $warehouse_code);
             $disabled = '';
@@ -50,8 +50,8 @@
             <div id="printJS-form" class="col-md-10" style="max-height: 87vh; overflow: scroll;">
                 <!-- Read-only Alert Message -->
                 @if($isReadOnly)
-                    <div class="alert alert-info alert-dismissible fade show" role="alert">
-                        <strong>Read-Only Mode:</strong> This SPI has been submitted and is in read-only mode for you. You can view all information but cannot make any changes. Please contact the Boss for any correction requests.
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        <strong>🔒 LOCKED - Read-Only Mode:</strong> This SPI has been sent to Warehouse Manager and is now locked for editing. You cannot make any changes unless the Warehouse Manager raises a Dispute. Contact your manager for corrections.
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 @endif

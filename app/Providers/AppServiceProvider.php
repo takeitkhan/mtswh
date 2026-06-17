@@ -26,8 +26,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot()
     {
         Paginator::useBootstrap();
-        //Link with public folder
-        View::share('publicDir', asset('public'));
+        //Link with public folder - use protocol-relative path to avoid mixed content issues
+        View::share('publicDir', '/public');
         View::share('viewDir', asset('resources/views'));
 
         //Helpers

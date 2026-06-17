@@ -267,33 +267,36 @@ class PpiProductController extends SingleWarehouseController
      * @return void
      */
     public function destroy($wh_code, $id){
-        //dd('ok');
-        //dd(PpiProduct::ppiProductInfoByPpiProductId($id, ['column' => 'product_name']));
-        $data = $this->model::find($id);
-        if ($data && PpiSpiHelper::isLockedForCurrentUser($data->ppi_id, 'Ppi')) {
+        $data = $this->model::withTrashed()->find($id);
+        
+        if (!$data) {
+            return redirect()->back()->with(['status' => 0, 'message' => 'PPI Product not found']);
+        }
+        
+        if (PpiSpiHelper::isLockedForCurrentUser($data->ppi_id, 'Ppi')) {
             return redirect()->back()
                 ->with(['status' => 0, 'message' => PpiSpiHelper::lockMessage('Ppi')]);
         }
+        
+        // Already deleted?
+        if ($data->deleted_at !== null) {
+            return redirect()->back()->with(['status' => 1, 'message' => 'PPI already deleted - no longer visible in lists']);
+        }
+        
         $busketInfo = $this->ppi_spi_history->arrangePpiData($data->ppi_id);
         $productName = PpiProduct::ppiProductInfoByPpiProductId($id, ['column' => 'product_name']);
+        
+        // ⭐ SOFT DELETE - This sets deleted_at timestamp (PPI becomes invisible immediately)
         $done = $data->delete();
 
-
-        /** Delete from Dispute */
-        $this->Model('PpiSpiDispute')::where('ppi_spi_id', $data->ppi_id)->where('ppi_spi_product_id', $id)->delete() ?? false;
-
-
-        // Delete From Temporary STock
-            TemporaryStock::where('action_format', 'Ppi')->where('ppi_product_id', $id)->delete() ?? null;
-
-        /***
-         * PPI Product STock Delete
-         */
-        $checkStock = $this->Model('ProductStock')::where('ppi_spi_id', $data->ppi_id)->where('ppi_spi_product_id', $id)
-                                    ->where('action_format', 'Ppi')->delete();
-        //$done = true;
         if($done){
-            $doStatus =  $this->ppiSpiStatusController->ppiActionStatus([
+            // Only clean up related records AFTER soft-delete confirmed
+            $this->Model('PpiSpiDispute')::where('ppi_spi_id', $data->ppi_id)->where('ppi_spi_product_id', $id)->delete();
+            TemporaryStock::where('action_format', 'Ppi')->where('ppi_product_id', $id)->delete();
+            $this->Model('ProductStock')::where('ppi_spi_id', $data->ppi_id)->where('ppi_spi_product_id', $id)
+                                        ->where('action_format', 'Ppi')->delete();
+
+            $doStatus = $this->ppiSpiStatusController->ppiActionStatus([
                 'wh_id' => request()->get('warehouse_id'),
                 'ppi_id' => $data->ppi_id,
                 'action' => 'ppi_product_deleted',
@@ -302,21 +305,24 @@ class PpiProductController extends SingleWarehouseController
                 'redirect' => false,
                 'get_status_data' => true,
             ]);
+
+            // History
+            $status_id = $doStatus->id;
+            $newInfo = $this->ppi_spi_history->arrangePpiData($data->ppi_id);
+            $this->ppi_spi_history->createHistory([
+                'ppi_spi_id' => $data->ppi_id,
+                'action_format' => 'Ppi',
+                'chunck_old_data' => $busketInfo,
+                'chunck_new_data' => $newInfo,
+                'status_id' => $status_id,
+            ]);
+            
+            \Log::info("✅ PPI Product Soft-Deleted: $productName (ID: $id)");
+            return redirect()->back()->with(['status' => 1, 'message' => "✅ Successfully deleted - '$productName' will never appear in lists again"]);
         }
-
-        // History Create
-        $status_id = $doStatus->id;
-        $newInfo = $this->ppi_spi_history->arrangePpiData($data->ppi_id);
-        $this->ppi_spi_history->createHistory([
-            'ppi_spi_id' => $data->ppi_id,
-            'action_format' => 'Ppi',
-            'chunck_old_data' => $busketInfo,
-            'chunck_new_data' => $newInfo,
-            'status_id' => $status_id,
-        ]);
-        //End
-
-        return redirect()->back()->with(['status' => 0, 'message' => 'Successfully deleted']);
+        
+        \Log::error("❌ PPI Product Soft-Delete Failed: $productName (ID: $id)");
+        return redirect()->back()->with(['status' => 0, 'message' => '❌ Failed to delete PPI']);
     }
 
     /**

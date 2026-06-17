@@ -26,6 +26,9 @@
         <span id="userRoleDebug" style="font-weight: bold; color: {{ $isSubordinateManagerBackend ? '#dc3545' : '#28a745' }};">
             Status: {{ $isSubordinateManagerBackend ? '✓ SUBORDINATE MANAGER DETECTED' : '✗ NOT Subordinate Manager' }}
         </span>
+        <br/>
+        <strong>API Response Debug:</strong>
+        <pre id="apiDebugInfo" style="background: #f5f5f5; padding: 5px; margin-top: 5px; max-height: 100px; overflow-y: auto;"></pre>
     </div>
     
     <div class="card-body">
@@ -37,6 +40,7 @@
                         <th style="width: 40px;"><input type="checkbox" id="selectAllPpis" title="Select/Deselect all PPIs"></th>
                         <th>PPI ID</th>
                         <th>Warehouse/Supplier</th>
+                        <th>Project</th>
                         <th class="stock-in-hand-col">Stock in Hand</th>
                         <th>Product State</th>
                         <th>Health Status</th>
@@ -153,7 +157,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Listen for renderPpiList event from Select2 in product-add-section (new method)
     window.addEventListener('renderPpiList', function(e) {
         const ppis = e.detail.ppis;
-        renderPpiList(ppis, isSubordinateManager);
+        const isSubordinateManager = e.detail.is_subordinate_manager || false;
+        const isManagersSM = e.detail.is_managers_as_sm || false;
+        renderPpiList(ppis, isSubordinateManager, isManagersSM);
     });
 
     // Back to product selection
@@ -207,18 +213,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('User ID:', data.debug.user_id);
                 console.log('User Name:', data.debug.user_name);
                 console.log('Is Subordinate Manager:', data.debug.is_subordinate_manager);
+                console.log('Is Managers As SM:', data.debug.is_managers_as_sm);
                 console.log('All User Roles:', data.debug.all_user_roles);
+                console.log('Total PPIs returned:', data.ppis.length);
+                console.log('PPIs:', data.ppis);
                 
-                // Store the flag for use in renderPpiList
-                isSubordinateManager = data.is_subordinate_manager;
-                
-                if (data.is_subordinate_manager) {
-                    console.log('✓ Stock column will NOT be rendered for Subordinate Manager');
-                } else {
-                    console.log('✗ Stock column WILL be rendered - User is NOT Subordinate Manager');
+                // Show API debug info on page
+                const debugInfo = document.getElementById('apiDebugInfo');
+                if (debugInfo) {
+                    debugInfo.textContent = 'Total PPIs: ' + data.ppis.length + '\n' +
+                        'PPI IDs: ' + data.ppis.map(p => p.ppi_id).join(', ');
                 }
                 
-                renderPpiList(data.ppis, data.is_subordinate_manager);
+                // Store the flags for use in renderPpiList
+                isSubordinateManager = data.is_subordinate_manager;
+                isManagersSM = data.is_managers_as_sm;
+                
+                if (data.is_subordinate_manager || data.is_managers_as_sm) {
+                    console.log('✓ Stock column will NOT be rendered (Subordinate Manager or Managers As SM)');
+                } else {
+                    console.log('✗ Stock column WILL be rendered - User has normal permissions');
+                }
+                
+                renderPpiList(data.ppis, data.is_subordinate_manager, data.is_managers_as_sm);
                 ppiListEmpty.style.display = 'none';
             } else {
                 ppiListEmpty.style.display = 'block';
@@ -234,34 +251,41 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Render PPI list in table
-    function renderPpiList(ppis, isSubordinateManager = false) {
+    function renderPpiList(ppis, isSubordinateManager = false, isManagersSM = false) {
         const ppiListBody = document.getElementById('ppiListBody');
         ppiListBody.innerHTML = '';
+
+        // Hide stock column if user is Subordinate Manager or Managers As SM
+        const hideStockColumn = isSubordinateManager || isManagersSM;
 
         // Update header - hide/show Stock column based on role
         const stockHeaderCol = document.querySelector('th.stock-in-hand-col');
         if(stockHeaderCol) {
-            stockHeaderCol.style.display = isSubordinateManager ? 'none' : 'table-cell';
+            stockHeaderCol.style.display = hideStockColumn ? 'none' : 'table-cell';
         }
 
         ppis.forEach((ppi, index) => {
             const row = document.createElement('tr');
             row.setAttribute('data-ppi-id', ppi.ppi_id);
             row.setAttribute('data-product-id', ppi.product_id);
+            row.setAttribute('data-available-qty', ppi.available_qty || 0);
             
             // Stock column - conditionally included
-            const stockColumnHTML = isSubordinateManager ? '' : `<td class="stock-in-hand-col">${ppi.stock_in_hand !== null ? ppi.stock_in_hand : 'N/A'}</td>`;
+            const stockColumnHTML = hideStockColumn ? '' : `<td class="stock-in-hand-col">${ppi.available_qty !== null ? ppi.available_qty : 'N/A'}</td>`;
             
             row.innerHTML = `
                 <td style="width: 40px;"><input type="checkbox" class="ppi-select-checkbox" data-ppi-id="${ppi.ppi_id}" data-product-id="${ppi.product_id}" data-index="${index}"></td>
                 <td><strong>${ppi.ppi_id}</strong></td>
                 <td><span class="badge bg-success">${ppi.warehouse || 'N/A'}</span><br>${ppi.supplier || 'N/A'}</td>
+                <td><span class="badge bg-info">${ppi.project || 'N/A'}</span></td>
                 ${stockColumnHTML}
                 <td>${ppi.product_state || 'New'}</td>
                 <td>${ppi.health_status || 'Useable'}</td>
                 <td>৳${parseFloat(ppi.unit_price || 0).toFixed(2)}</td>
                 <td>
-                    <input type="number" class="form-control form-control-sm ppi-qty" value="1" min="1" data-index="${index}">
+                    <div class="qty-input-wrapper">
+                        <input type="number" class="form-control form-control-sm ppi-qty" value="1" min="1" max="${ppi.available_qty || 0}" data-index="${index}" data-available-qty="${ppi.available_qty || 0}" data-ppi-id="${ppi.ppi_id}">
+                    </div>
                 </td>
                 <td>
                     <input type="number" class="form-control form-control-sm ppi-unit-price" value="${ppi.unit_price || 0}" min="0" data-index="${index}" step="0.01">
@@ -271,7 +295,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <input type="text" class="form-control form-control-sm ppi-notes" placeholder="Notes" data-index="${index}">
                 </td>
                 <td>
-                    <button type="button" class="btn btn-sm btn-success add-from-ppi" data-ppi-id="${ppi.ppi_id}" data-product-id="${ppi.product_id}" data-index="${index}">
+                    <button type="button" class="btn btn-sm btn-success add-from-ppi" data-ppi-id="${ppi.ppi_id}" data-product-id="${ppi.product_id}" data-index="${index}" data-available-qty="${ppi.available_qty || 0}">
                         <i class="fas fa-plus"></i>
                     </button>
                 </td>
@@ -284,6 +308,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const unitPriceInput = row.querySelector('.ppi-unit-price');
             const addBtn = row.querySelector('.add-from-ppi');
 
+            // Validate quantity on input change
+            qtyInput.addEventListener('change', function() {
+                const availableQty = parseFloat(this.getAttribute('data-available-qty')) || 0;
+                const requestedQty = parseFloat(this.value) || 0;
+                
+                if (requestedQty > availableQty) {
+                    showAlert('Your requested quantity exceeds the maximum allowed. Try to split quantity in several PPIs', 'warning');
+                } else if (requestedQty <= 0) {
+                    this.value = 1;
+                }
+                updateTotalPrice(row);
+            });
+
             // Update total price when qty or unit price changes
             [qtyInput, unitPriceInput].forEach(input => {
                 input.addEventListener('change', function() {
@@ -294,7 +331,15 @@ document.addEventListener('DOMContentLoaded', function() {
             // Add button click
             addBtn.addEventListener('click', function(e) {
                 e.preventDefault();
-                addProductFromPpi(ppi, qtyInput.value, unitPriceInput.value, row.querySelector('.ppi-notes').value);
+                const requestedQty = parseFloat(qtyInput.value) || 0;
+                const availableQty = parseFloat(this.getAttribute('data-available-qty')) || 0;
+                
+                if (requestedQty > availableQty) {
+                    showAlert('Your requested quantity exceeds the maximum allowed. Try to split quantity in several PPIs', 'danger');
+                    return;
+                }
+                
+                addProductFromPpi(ppi, requestedQty, unitPriceInput.value, row.querySelector('.ppi-notes').value);
             });
         });
     }
@@ -351,37 +396,15 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            if (data.success && data.html) {
+            if (data.success) {
                 showAlert('Product added successfully!', 'success');
                 
-                // Update the products table directly with the new HTML from the response
-                const tableBody = document.querySelector('form#tbl_ppi_product_form_action table tbody');
-                if (tableBody) {
-                    // Remove the dummy row if it exists
-                    const dummyRow = tableBody.querySelector('tr.d-none');
-                    if (dummyRow) {
-                        dummyRow.remove();
-                    }
-                    
-                    // Replace table body content with the updated product rows
-                    tableBody.innerHTML = data.html;
-                    console.log('✅ Table updated with new product');
-                    
-                    // Re-attach event handlers to the new rows
-                    if (typeof attachRowEventHandlers === 'function') {
-                        attachRowEventHandlers();
-                        console.log('✅ Event handlers re-attached');
-                    }
-                }
-
-                // Reset
-                const productSelectEl = document.getElementById('spiProductSelect');
-                if (productSelectEl) {
-                    productSelectEl.value = '';
-                    if (window.jQuery) jQuery(productSelectEl).trigger('change');
-                }
-                const ppiListSectionEl = document.getElementById('spiPpiListSection');
-                if (ppiListSectionEl) ppiListSectionEl.style.display = 'none';
+                // Reload page after a short delay to refresh all functionality
+                console.log('🔄 Reloading page to refresh all functionality...');
+                setTimeout(() => {
+                    console.log('🔄 RELOADING NOW!');
+                    window.location.href = window.location.href;
+                }, 700);
             } else {
                 showAlert(data.message || 'Failed to add product', 'danger');
             }
@@ -414,7 +437,11 @@ function updateSelectedCount() {
 }
 
 function addMultipleSelectedPpis() {
+    console.log('🔵 addMultipleSelectedPpis() called');
+    
     const checkedRows = document.querySelectorAll('.ppi-select-checkbox:checked');
+    console.log('✓ Checked rows:', checkedRows.length);
+    
     if (checkedRows.length === 0) {
         showAlert('Please select at least one PPI to add', 'warning');
         return;
@@ -431,6 +458,7 @@ function addMultipleSelectedPpis() {
 
     let productIndex = 0;
     const productIds = new Set();
+    let hasValidationError = false;
 
     // Collect data from all checked rows
     checkedRows.forEach((checkbox) => {
@@ -448,9 +476,20 @@ function addMultipleSelectedPpis() {
         const qty = qtyInput?.value || '';
         const unitPrice = priceInput?.value || '';
         const notes = notesInput?.value || '';
+        const availableQty = row.getAttribute('data-available-qty');
 
         if (!productId || !ppiId) {
             console.warn('Missing productId or ppiId for row', row);
+            return;
+        }
+
+        // Validate quantity against available quantity
+        const requestedQty = parseFloat(qty) || 0;
+        const availableQtyNum = parseFloat(availableQty) || 0;
+        
+        if (requestedQty > availableQtyNum) {
+            showAlert(`PPI ${ppiId}: Your requested quantity exceeds the maximum allowed. Try to split quantity in several PPIs`, 'danger');
+            hasValidationError = true;
             return;
         }
 
@@ -465,6 +504,12 @@ function addMultipleSelectedPpis() {
         productIndex++;
     });
 
+    if (hasValidationError) {
+        addMultiBtn.disabled = false;
+        addMultiBtn.innerHTML = originalText;
+        return;
+    }
+
     if (productIndex === 0) {
         showAlert('No valid PPIs selected to add', 'warning');
         addMultiBtn.disabled = false;
@@ -472,62 +517,45 @@ function addMultipleSelectedPpis() {
         return;
     }
 
+    console.log('📤 Sending request with', productIndex, 'products');
+    
     // Send AJAX request
     fetch('{{ route("spi_product_store", $warehouse_code) }}', {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('📥 Response status:', response.status);
+        console.log('📥 Response headers:', response.headers);
+        return response.text().then(text => {
+            console.log('📄 Response text:', text);
+            return JSON.parse(text);
+        });
+    })
     .then(data => {
-        if (data.success && data.html) {
-            console.log('✅ Products added successfully, updating table...');
+        console.log('✅ Parsed data:', data);
+        
+        if (data.success) {
+            console.log('✅ Success! Now reloading page...');
             showAlert(`Successfully added ${productIndex} product(s)!`, 'success');
 
-            // Update the products table directly with the new HTML from the response
-            const tableBody = document.querySelector('form#tbl_ppi_product_form_action table tbody');
-            if (tableBody) {
-                // Remove the dummy row if it exists
-                const dummyRow = tableBody.querySelector('tr.d-none');
-                if (dummyRow) {
-                    dummyRow.remove();
-                }
-                
-                // Replace table body content with the updated product rows
-                tableBody.innerHTML = data.html;
-                console.log('✅ Table updated with new products');
-                
-                // Re-attach event handlers to the new rows
-                if (typeof attachRowEventHandlers === 'function') {
-                    attachRowEventHandlers();
-                    console.log('✅ Event handlers re-attached');
-                }
-            }
-
-            // Clear all checkboxes
-            document.querySelectorAll('.ppi-select-checkbox').forEach(cb => cb.checked = false);
-            document.getElementById('selectAllPpis').checked = false;
-
-            // Hide the Add Selected button and PPI list
-            updateSelectedCount();
-            const ppiListSection = document.querySelector('[data-ppi-list-section]');
-            if (ppiListSection) {
-                setTimeout(() => {
-                    ppiListSection.style.display = 'none';
-                }, 500);
-            }
-
-            // Reset product select
-            const productSelect = document.querySelector('select[name="product_id"]');
-            if (productSelect) productSelect.value = '';
+            // Reload page immediately to refresh all functionality
+            console.log('🔄 Reloading page in 1 second...');
+            setTimeout(() => {
+                console.log('🔄 RELOADING NOW!');
+                window.location.href = window.location.href;
+            }, 700);
         } else {
+            console.log('❌ Success is false. Data:', data);
             showAlert(data.message || 'Failed to add products', 'danger');
         }
     })
     .catch(error => {
-        console.error('Error:', error);
+        console.error('❌ Error caught:', error);
         showAlert('Error adding products: ' + error.message, 'danger');
     })
     .finally(() => {
+        console.log('🔵 Finally block executed');
         addMultiBtn.disabled = false;
         addMultiBtn.innerHTML = originalText;
     });
