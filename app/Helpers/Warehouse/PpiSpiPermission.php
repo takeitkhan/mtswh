@@ -8,25 +8,25 @@ class PpiSpiPermission {
         
         <?php if(auth()->user()->hasRoutePermission('ppi_product_price_show_element') == false): ?>
             <script>
-                $('#ppi_content .ppi_product_price_show, .ppi_product_price_show').remove();
+                document.querySelectorAll('#ppi_content .ppi_product_price_show, .ppi_product_price_show').forEach(el => el.remove());
             </script>           
         <?php endif;?>
 
         <?php if(auth()->user()->hasRoutePermission('ppi_set_product_add') == false): ?>
             <script>
-                $('#ppi_content .ppi_set_product_add').remove();
+                document.querySelectorAll('#ppi_content .ppi_set_product_add').forEach(el => el.remove());
             </script>           
         <?php endif;?>
         
         <?php if(auth()->user()->hasRoutePermission('ppi_product_edit') == false): ?>
             <script>
-                $('#ppi_content .ppi_product_edit').remove();
+                document.querySelectorAll('#ppi_content .ppi_product_edit').forEach(el => el.remove());
             </script>           
         <?php endif;?>
 
         <?php if(auth()->user()->hasRoutePermission('ppi_product_destroy') == false): ?>
             <script>
-                $('#ppi_content .ppi_product_destroy').remove();
+                document.querySelectorAll('#ppi_content .ppi_product_destroy').forEach(el => el.remove());
             </script>           
         <?php endif;?>
 

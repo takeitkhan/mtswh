@@ -156,16 +156,11 @@
                 @if($checkStockOutThisProduct)
                     <div class="alert alert-success">This Product is out from stock</div>
                 @else
-
                     @if( auth()->user()->checkUserRoleTypeGlobal() || $ppiLastMainStatus->code == 'spi_resent_to_wh_manager' || $ppiLastMainStatus->code == 'spi_sent_to_wh_manager'  || $ppiLastMainStatus->code == 'spi_dispute_by_wh_manager')
-
-                        @if(auth()->user()->hasRoutePermission('spi_ready_to_physical_validation_action') && $product->from_warehouse == request()->get('warehouse_id'))
-
-                            @if ($checkThisProductIsDisputeNow == 'Dispute')
-
-                            @else
-                                <div class="text-start mb-2">
-                                    @if ($ppiLastStatusCode == 'spi_agreed_no_dispute')
+                        @if(auth()->user()->hasRoutePermission('spi_ready_to_physical_validation_action') && ($product->from_warehouse ?? $product->warehouse_id) == request()->get('warehouse_id'))
+                            @if ($checkThisProductIsDisputeNow != 'Dispute')
+                                @if ($ppiLastStatusCode == 'spi_agreed_no_dispute')
+                                    <div class="text-start mb-2">
                                         <div id="btnWrapperBarcodeStockIn" class="d-inline-block">
                                             @if($barcode_format == 'Tag' || $barcode_format ==  'Bundle-Tag')
                                                 <a class="btn btn-sm btn-primary py-0" type="button" onclick="PrintDiv()">Start to Print Barcode Tag</a>
@@ -178,19 +173,19 @@
                                             </a>
                                             @endif
                                         </div>
-                                    @else
-                                        @if(auth()->user()->hasRoutePermission('spi_dispute_by_wh_manager_action'))
-                                            <div style="font-size: 11px;">
-                                                <input id="agreeallok" type="checkbox" style="height: 12px;"/>
-                                                <label for="agreeallok">I agree that there are no dispute.</label>
-                                            </div>
+                                    </div>
+                                @else
+                                    <div class="text-start mb-2">
+                                        <div style="font-size: 11px;">
+                                            <input id="agreeallok" type="checkbox" style="height: 12px;"/>
+                                            <label for="agreeallok">I agree that there are no dispute.</label>
+                                        </div>
 
-                                            <div id="btnWrapper" class="d-inline-block">
+                                        <div id="btnWrapper" class="d-inline-block">
 
-                                            </div>
-                                        @endif
-                                    @endif
-                                </div>
+                                        </div>
+                                    </div>
+                                @endif
                             @endif
                         @endif
                     @else
@@ -668,12 +663,9 @@
                         }
                     });
 
-                    //Action if click on submit button
-                    $(document).on('click', '#existingProductOpenModal .saveBtnForExistingProductStockIn button', function (e) {
-                        e.preventDefault()
-                        let thisDataInputVal = $(this).data('input_val')
-                        existingStock(thisDataInputVal);
-                    })
+                    // Vanilla JS replacement for the above
+                    // This handler is already covered by the click event delegation above
+                    // No need for jQuery $(document).on() pattern
                 </script>
 
 
