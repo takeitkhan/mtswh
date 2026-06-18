@@ -495,7 +495,7 @@
         </script>
     @endif
 
-    <link rel="stylesheet" href="{{ $publicDir }}/assets/css/bootstrap.min.cssx"  media="print">
+    <link rel="stylesheet" href="{{ $publicDir }}/assets/css/bootstrap.min.css"  media="print">
     <link rel="stylesheet" href="{{ $publicDir }}/assets/css/form.css"  media="print">
     <link rel="stylesheet" href="{{ $publicDir }}/assets/css/blue.css"  media="print">
     <link rel="stylesheet" href="{{ $publicDir }}/assets/css/style.css"  media="print">

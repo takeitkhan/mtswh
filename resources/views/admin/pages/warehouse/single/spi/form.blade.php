@@ -4,6 +4,12 @@
     SPI | Sale Product Information
 @endsection
 
+@php
+    // Define getSpiProduct early for entire template scope
+    $getSpiProduct = null;
+    $checkSpiLastMainSts = null;
+@endphp
+
 @section('onlytitle')
     @php
         $generalUser = auth()->user()->checkUserRoleTypeGeneral();
@@ -35,17 +41,27 @@
 @section('content')
 
     <div class="content-wrapper" id="spi_content" style="overflow: hidden;">
-        <?php
-        $warehouse_code = request()->get('warehouse_code');
-        $isReadOnly = $readonly ?? false;
-        if (!empty($spi)) {
-            $routeUrl = route('spi_update', $warehouse_code);
-            $disabled = $isReadOnly ? 'disabled' : '';
-        } else {
+        @php
+            $warehouse_code = request()->get('warehouse_code');
+            $isReadOnly = $readonly ?? false;
             $routeUrl = route('spi_store', $warehouse_code);
             $disabled = '';
-        }
-        ?>
+            
+            // Populate getSpiProduct and checkSpiLastMainSts for this section
+            $getSpiProduct = null;
+            $checkSpiLastMainSts = null;
+            
+            if (!empty($spi)) {
+                $routeUrl = route('spi_update', $warehouse_code);
+                $disabled = $isReadOnly ? 'disabled' : '';
+                $getSpiProduct = \App\Models\SpiProduct::products($spi->id);
+                $checkSpiLastMainSts = \App\Models\PpiSpiStatus::where('ppi_spi_id', $spi->id)
+                                        ->where('status_for', 'Spi')
+                                        ->where('status_format', 'Main')
+                                        ->orderBy('status_order', 'desc')
+                                        ->first();
+            }
+        @endphp
         <div class="row">
             <div id="printJS-form" class="col-md-10" style="max-height: 87vh; overflow: scroll;">
                 <!-- Read-only Alert Message -->
@@ -288,18 +304,18 @@
 
 
             <!-- PPi Product Step Information -->
-            @if(isset($getSpiProduct) && count($getSpiProduct))
-                <div class="done_this_action">
-                    <h6>
-                        <div class="mb-0 px-2 title-with-border border-0 text-dark alert-secondary fw-bold">
-                            SPI Action
-                        </div>
-                    </h6>
-                    <div class="py-2 alert-gray">
-                        @include('admin.pages.warehouse.single.spi.spi-step-action-button')
+            <div class="done_this_action">
+                <h6>
+                    <div class="mb-0 px-2 title-with-border border-0 text-dark alert-secondary fw-bold">
+                        SPI Action
                     </div>
+                </h6>
+                <div class="py-2 alert-gray">
+                    @if(!empty($spi))
+                        @include('admin.pages.warehouse.single.spi.spi-step-action-button')
+                    @endif
                 </div>
-            @endif
+            </div>
 
             @if(!empty($spi))
                 <?php $spi_id = $spi->id; ?>
@@ -527,11 +543,71 @@
 
 
 
-@if(auth()->user()->checkUserRoleTypeGlobal())
-    @section('bottomjs')
-        <script>
-            $('#spi_content .spiProductEditBtn').remove();
-        </script>
+@section('bottomjs')
+    <script>
+        $('#spi_content .spiProductEditBtn').remove();
+    </script>
+    @if(auth()->user()->checkUserRoleTypeGlobal())
         @include('admin.pages.warehouse.single.spi.form.product-management-script')
-    @endsection
-@endif
+    @endif
+    
+    <!-- SPI Delivery Challan PDF Generation Script -->
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const btn = document.getElementById('generateChallanBtn');
+    
+        if (btn) {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+    
+                let warehouse = this.dataset.warehouse;
+                let spiId     = this.dataset.spiId;
+                let status    = this.dataset.status;
+                
+                console.log('Challan button clicked:', {warehouse, spiId, status});
+                
+                // Disable button to prevent double click
+                this.disabled = true;
+                this.classList.add('disabled');
+                
+                // 1. Open PDF in new tab (GET route)
+                window.open(`/spi/${warehouse}/${spiId}/${status}/challan/pdf`, "_blank");
+                
+                // 2. Mark status (POST route)
+                const postUrl = `/spi/${warehouse}/${spiId}/${status}/challan-pdf`;
+                console.log('Posting to:', postUrl);
+                
+                fetch(postUrl, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRF-TOKEN": "{{ csrf_token() }}",
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({})
+                })
+                .then(res => {
+                    console.log('Response status:', res.status);
+                    return res.json();
+                })
+                .then(data => {
+                    console.log('Response data:', data);
+                    if (data.success) {
+                        console.log('Success! Reloading page...');
+                        location.reload();
+                    } else {
+                        alert('Error: ' + (data.message || 'Unknown error'));
+                        this.disabled = false;
+                        this.classList.remove('disabled');
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    alert('Error: ' + error.message);
+                    this.disabled = false;
+                    this.classList.remove('disabled');
+                });
+            });
+        }
+    });
+    </script>
+@endsection

@@ -36,6 +36,29 @@
             $challanGenerated = $Model('PpiSpiStatus')::where('ppi_spi_id', $spi->id)
                                                       ->where('code', 'spi_delivery_challan_generated')
                                                       ->exists();
+            
+            // Check product validation status directly from database
+            // A product is validated when it has 'spi_product_out_from_stock' status
+            $spiProducts = $Model('SpiProduct')::where('spi_id', $spi->id)->get();
+            $singleProductValidationDone = true;
+            $setProductValidationDone = true;
+            
+            if($spiProducts->count() > 0) {
+                foreach($spiProducts as $product) {
+                    // Check if product has been marked as stocked out (validated)
+                    $hasStockOutStatus = $Model('PpiSpiStatus')::where('ppi_spi_product_id', $product->id)
+                                                               ->where('code', 'spi_product_out_from_stock')
+                                                               ->exists();
+                    
+                    if(!$hasStockOutStatus) {
+                        $singleProductValidationDone = false;
+                        break;
+                    }
+                }
+            } else {
+                $singleProductValidationDone = false;
+                $setProductValidationDone = false;
+            }
         @endphp
         
         <!-- If SPI is already completed -->
@@ -89,7 +112,21 @@
         @endif
 
         <!-- Generate Delivery Challan PDF Button (Show before challan is generated) -->
-        @if($spiComplete != 'spi_all_steps_complete' && !$challanGenerated && $generalUser && auth()->user()->hasRoutePermission('spi_dispute_by_wh_manager_action'))
+        @php
+            // Challan can be generated when:
+            // 1. SPI is not fully completed
+            // 2. Challan hasn't been generated yet
+            // 3. All products are validated (have spi_product_out_from_stock status)
+            // 4. Current user is Warehouse Manager
+            // 5. SPI is in a state where WH Manager can take action (sent to them or in dispute workflow)
+            $canGenerateChallan = !$challanGenerated 
+                                && $spiComplete != 'spi_all_steps_complete' 
+                                && $singleProductValidationDone 
+                                && $setProductValidationDone 
+                                && $generalUser;
+        @endphp
+        
+        @if($canGenerateChallan)
             <div class="mt-3 mb-3">
                 <button type="button"
                         id="generateChallanBtn"
