@@ -359,22 +359,34 @@ class PpiSpiPdfController extends Controller
         $warehouse_id = Warehouse::where('code', $warehouse_code)
                                             ->firstOrFail()
                                             ->id;
-        
-        return PpiSpiStatus::updateOrCreate(
-            [
-                'ppi_spi_id'   => $spi_id,
-                'warehouse_id' => $warehouse_id,
-                'status_for'   => 'Spi',
-                'code'         => 'spi_delivery_challan_generated'
-            ],
-            [
-                'message'      => 'SPI Delivery Challan has been generated',
-                'status_order' => 14,
-                'status_format'=> 'Main',
-                'status_type' => 'success',
-                'action_performed_by' => auth()->id(),
-            ]
-        );
+
+        PpiSpi::whereKey($spi_id)->lockForUpdate()->firstOrFail();
+
+        $existingStatus = PpiSpiStatus::where('ppi_spi_id', $spi_id)
+            ->where('status_for', 'Spi')
+            ->where('code', 'spi_delivery_challan_generated')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($existingStatus) {
+            return $existingStatus;
+        }
+
+        $nextStatusOrder = (int) PpiSpiStatus::where('ppi_spi_id', $spi_id)
+            ->where('status_for', 'Spi')
+            ->max('status_order') + 1;
+
+        return PpiSpiStatus::create([
+            'ppi_spi_id' => $spi_id,
+            'warehouse_id' => $warehouse_id,
+            'status_for' => 'Spi',
+            'code' => 'spi_delivery_challan_generated',
+            'message' => 'SPI Delivery Challan has been generated',
+            'status_order' => $nextStatusOrder,
+            'status_format' => 'Main',
+            'status_type' => 'success',
+            'action_performed_by' => auth()->id(),
+        ]);
     }
 
     /**

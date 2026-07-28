@@ -335,10 +335,21 @@ class PpiSpiStatusController extends SingleWarehouseController
         $statusCode = $statusArr[$action]['key'] ?? null;
         if ($statusCode && $statusCode === 'spi_all_steps_complete') {
             $existingStatus = PpiSpiStatus::where('ppi_spi_id', $merge_arr['spi_id'])
+                ->where('status_for', 'Spi')
                 ->where('code', 'spi_all_steps_complete')
                 ->first();
             
             if ($existingStatus) {
+                $maxOtherStatusOrder = (int) PpiSpiStatus::where('ppi_spi_id', $merge_arr['spi_id'])
+                    ->where('status_for', 'Spi')
+                    ->where('id', '!=', $existingStatus->id)
+                    ->max('status_order');
+
+                if ($existingStatus->status_order <= $maxOtherStatusOrder) {
+                    $existingStatus->status_order = $maxOtherStatusOrder + 1;
+                    $existingStatus->save();
+                }
+
                 // Status already exists, don't create duplicate
                 if ($redirect) {
                     $message = $statusArr[$action]['message'] ?? 'Action successfully saved';
@@ -348,8 +359,9 @@ class PpiSpiStatusController extends SingleWarehouseController
             }
         }
         
-        $dbStatus = PpiSpiStatus::where('ppi_spi_id', $merge_arr['spi_id'])->orderBy('id', 'desc')->first();
-        $number = $dbStatus->status_order ?? 0;
+        $number = (int) PpiSpiStatus::where('ppi_spi_id', $merge_arr['spi_id'])
+            ->where('status_for', 'Spi')
+            ->max('status_order');
         //dd($status);
         if($status !== false){
             $attributes = [

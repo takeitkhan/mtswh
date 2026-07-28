@@ -64,38 +64,9 @@
                 $debugInfo['note'] = 'No ppi_product_id or ppi_id';
             }
             
-            // Get the actual quantity from temporary_stocks (manager's confirmed quantity)
-            $tempStockForCalc = DB::table('temporary_stocks')
-                ->where('spi_product_id', $product->id)
-                ->where('action_format', 'Spi')
-                ->first();
-            
-            // Use manager's confirmed quantity if available, otherwise use spi_products qty
-            $actualQty = $tempStockForCalc ? (int)$tempStockForCalc->waiting_stock_out : (int)$product->qty;
-            $qtyRequested = $actualQty;
-            
-            // Get total qty in this SPI for this PPI+product (all rows combined)
-            $totalQtyInThisPpi = DB::table('ppi_products')
-                ->where('ppi_id', $product->ppi_id)
-                ->where('product_id', $product->product_id)
-                ->sum('qty') ?? 0;
-            
-            $totalQtyInThisSpi = DB::table('spi_products')
-                ->where('spi_id', $spi->id)
-                ->where('product_id', $product->product_id)
-                ->where('ppi_id', $product->ppi_id)
-                ->sum('qty') ?? 0;
-            
-            // Available for this row = Total in PPI - (Already allocated to other SPI rows)
-            $totalQtyAllocatedByOtherRows = $totalQtyInThisSpi - $qtyRequested;
-            $availableForThisRow = $totalQtyInThisPpi - $totalQtyAllocatedByOtherRows;
-            
-            // Check if qty exceeds available stock
-            $isQtyExceeded = ($qtyRequested > $availableForThisRow);
-            $rowClass = $isQtyExceeded ? 'table-danger' : '';
         @endphp
 
-        <tr class="pr_row_{{$product->id}} {{$product->any_warning_cls}} {{ $rowClass }}" data-product-id="{{ $product->id }}" data-stock-available="{{ $stockNumeric }}" data-available-qty="{{ $availableForThisRow }}" data-ppi-id="{{ $product->ppi_id }}" data-product-id-fk="{{ $product->product_id }}" data-debug="{{ json_encode($debugInfo) }}">
+        <tr class="pr_row_{{$product->id}} {{$product->any_warning_cls}}" data-product-id="{{ $product->id }}" data-stock-available="{{ $stockNumeric }}" data-ppi-id="{{ $product->ppi_id }}" data-product-id-fk="{{ $product->product_id }}" data-debug="{{ json_encode($debugInfo) }}">
             <!-- Delete & Edit Buttons -->
             <td>
                 @php
@@ -216,24 +187,6 @@
                     <span class="badge bg-secondary">{{ $displayQty }} (Readonly)</span>
                 @else
                     <input type="number" class="form-control form-control-sm qty-input" value="{{ $displayQty }}" min="1" data-old-value="{{ $displayQty }}" data-product-id="{{ $product->id }}" data-max-available="{{ $stockNumeric }}">
-                @endif
-                @php
-                    // Get user roles to check if boss
-                    $userRolesForButtonCheck = DB::table('role_users')->join('roles', 'roles.id', '=', 'role_users.role_id')
-                        ->where('role_users.user_id', auth()->user()->id)
-                        ->pluck('roles.name', 'roles.code')->toArray();
-                    $isBossForButtons = isset($userRolesForButtonCheck['boss']) || in_array('Boss', $userRolesForButtonCheck);
-                @endphp
-                @if($isQtyExceeded && $isBossForButtons)
-                    <small class="text-danger fw-bold d-block mt-1">⚠ Shortfall: {{ $qtyRequested - $availableForThisRow }} units</small>
-                    <div class="mt-1 d-flex gap-2">
-                        <button type="button" class="btn btn-sm btn-warning adjust-to-available" data-product-id="{{ $product->id }}" data-max-available="{{ $availableForThisRow }}">
-                            <i class="fas fa-sync"></i> Adjust
-                        </button>
-                        <button type="button" class="btn btn-sm btn-info add-from-another-ppi" data-product-id="{{ $product->product_id }}" data-ppi-id="{{ $product->ppi_id }}" data-product-name="{{ $product->product_name }}" data-shortfall="{{ $qtyRequested - $availableForThisRow }}" data-bs-toggle="modal" data-bs-target="#alternativePpiModal">
-                            <i class="fas fa-plus-circle"></i> Add from other PPI
-                        </button>
-                    </div>
                 @endif
             </td>
 

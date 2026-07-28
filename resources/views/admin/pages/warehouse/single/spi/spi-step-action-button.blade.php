@@ -124,6 +124,12 @@
                                 && $singleProductValidationDone 
                                 && $setProductValidationDone 
                                 && $generalUser;
+
+            // Keep the SPI Action wrapper visible so the Generate Challan button
+            // (which lives inside .done_this_action) is not removed by the JS below.
+            if ($canGenerateChallan) {
+                $doneThisAction = false;
+            }
         @endphp
         
         @if($canGenerateChallan)
