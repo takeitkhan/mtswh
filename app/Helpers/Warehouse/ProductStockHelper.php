@@ -177,29 +177,36 @@ class ProductStockHelper {
     }
 
 
-    public function getSpiProductBasedOnPpiProductId($ppi_product_id){
-        $data = DB::select("
-            SELECT
-                ppi_spis.id as spi_id,
-                ppi_spis.project,
-                ppi_spis.ppi_spi_type,
-                ppi_spis.action_format,
-                spi_products.warehouse_id,
-                spi_products.from_warehouse,
-                spi_products.product_id,
-                spi_products.id as spi_product_id,
-                spi_products.ppi_id,
-                spi_products.ppi_product_id,
-                spi_products.bundle_id,
-                spi_products.unit_price,
-                spi_products.qty,
-                spi_products.created_at
-            FROM spi_products
-            LEFT JOIN ppi_spis ON ppi_spis.id = spi_products.spi_id
-            WHERE ppi_product_id = $ppi_product_id;
-        ");
+    public function getSpiProductBasedOnPpiProductId($ppi_product_id) {
+        $ppiProduct = DB::table('ppi_products')
+            ->where('id', $ppi_product_id)
+            ->first(['ppi_id', 'product_id']);
 
-        return collect($data);
+        if (!$ppiProduct) {
+            return collect();
+        }
+
+        return DB::table('spi_products')
+            ->leftJoin('ppi_spis', 'ppi_spis.id', '=', 'spi_products.spi_id')
+            ->where('spi_products.ppi_id', $ppiProduct->ppi_id)
+            ->where('spi_products.product_id', $ppiProduct->product_id)
+            ->select([
+                'ppi_spis.id as spi_id',
+                'ppi_spis.project',
+                'ppi_spis.ppi_spi_type',
+                'ppi_spis.action_format',
+                'spi_products.warehouse_id',
+                'spi_products.from_warehouse',
+                'spi_products.product_id',
+                'spi_products.id as spi_product_id',
+                'spi_products.ppi_id',
+                'spi_products.ppi_product_id',
+                'spi_products.bundle_id',
+                'spi_products.unit_price',
+                'spi_products.qty',
+                'spi_products.created_at',
+            ])
+            ->get();
     }
 
 

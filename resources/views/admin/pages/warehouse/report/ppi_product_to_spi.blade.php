@@ -52,7 +52,6 @@
                     $productStockHelper = new \App\Helpers\Warehouse\ProductStockHelper();
                     $getData = $productStockHelper->getSpiProductBasedOnPpiProductId($ppi_product_id);
                     request()->get('bundle_id') ? $getData = $getData->where('bundle_id', request()->get('bundle_id')) : null;
-//                    dd($getData);
                 @endphp
                 <div class="row">
                     <div class="col-md-4 date_range">
