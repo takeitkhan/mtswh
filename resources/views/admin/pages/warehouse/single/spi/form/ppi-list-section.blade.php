@@ -8,7 +8,7 @@
     </div>
     
     <!-- DEBUG: Show user role info -->
-    <div class="alert alert-warning m-2" style="font-size: 11px;">
+    <div class="alert alert-warning m-2" style="display: none; font-size: 11px;">
         <strong>DEBUG INFO:</strong> 
         User ID: {{ auth()->user()->id }} | 
         User Name: {{ auth()->user()->name }} | 
@@ -267,6 +267,7 @@ document.addEventListener('DOMContentLoaded', function() {
         ppis.forEach((ppi, index) => {
             const row = document.createElement('tr');
             row.setAttribute('data-ppi-id', ppi.ppi_id);
+            row.setAttribute('data-ppi-product-id', ppi.ppi_product_id);
             row.setAttribute('data-product-id', ppi.product_id);
             row.setAttribute('data-available-qty', ppi.available_qty || 0);
             
@@ -274,7 +275,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const stockColumnHTML = hideStockColumn ? '' : `<td class="stock-in-hand-col">${ppi.available_qty !== null ? ppi.available_qty : 'N/A'}</td>`;
             
             row.innerHTML = `
-                <td style="width: 40px;"><input type="checkbox" class="ppi-select-checkbox" data-ppi-id="${ppi.ppi_id}" data-product-id="${ppi.product_id}" data-index="${index}"></td>
+                <td style="width: 40px;"><input type="checkbox" class="ppi-select-checkbox" data-ppi-id="${ppi.ppi_id}" data-ppi-product-id="${ppi.ppi_product_id}" data-product-id="${ppi.product_id}" data-index="${index}"></td>
                 <td><strong>${ppi.ppi_id}</strong></td>
                 <td><span class="badge bg-success">${ppi.warehouse || 'N/A'}</span><br>${ppi.supplier || 'N/A'}</td>
                 <td><span class="badge bg-info">${ppi.project || 'N/A'}</span></td>
@@ -315,6 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (requestedQty > availableQty) {
                     showAlert('Your requested quantity exceeds the maximum allowed. Try to split quantity in several PPIs', 'warning');
+                    this.value = '';
                 } else if (requestedQty <= 0) {
                     this.value = 1;
                 }
@@ -388,6 +390,7 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('product[' + ppi.product_id + '][unit_price]', unitPrice);
         formData.append('product[' + ppi.product_id + '][notes]', notes);
         formData.append('product[' + ppi.product_id + '][ppi_id]', ppi.ppi_id);
+        formData.append('product[' + ppi.product_id + '][ppi_product_id]', ppi.ppi_product_id);
         formData.append('_token', document.querySelector('input[name="_token"]').value);
 
         fetch('{{ route("spi_product_store", $warehouse_code) }}', {
@@ -467,6 +470,7 @@ function addMultipleSelectedPpis() {
 
         // Get ppiId and productId from multiple sources for robustness
         const ppiId = checkbox.dataset.ppiId || row.dataset.ppiId;
+        const ppiProductId = checkbox.dataset.ppiProductId || row.dataset.ppiProductId;
         const productId = checkbox.dataset.productId || row.dataset.productId;
         
         const qtyInput = row.querySelector('input.ppi-qty');
@@ -478,8 +482,8 @@ function addMultipleSelectedPpis() {
         const notes = notesInput?.value || '';
         const availableQty = row.getAttribute('data-available-qty');
 
-        if (!productId || !ppiId) {
-            console.warn('Missing productId or ppiId for row', row);
+        if (!productId || !ppiId || !ppiProductId) {
+            console.warn('Missing productId, ppiId or ppiProductId for row', row);
             return;
         }
 
@@ -496,6 +500,7 @@ function addMultipleSelectedPpis() {
         // Build FormData with product[index][field] structure
         formData.append(`product[${productIndex}][product_id]`, productId);
         formData.append(`product[${productIndex}][ppi_id]`, ppiId);
+        formData.append(`product[${productIndex}][ppi_product_id]`, ppiProductId);
         if (qty) formData.append(`product[${productIndex}][qty]`, qty);
         if (unitPrice) formData.append(`product[${productIndex}][unit_price]`, unitPrice);
         if (notes) formData.append(`product[${productIndex}][notes]`, notes);

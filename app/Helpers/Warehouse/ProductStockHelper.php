@@ -205,6 +205,12 @@ class ProductStockHelper {
                 'spi_products.unit_price',
                 'spi_products.qty',
                 'spi_products.created_at',
+                DB::raw("EXISTS (
+                    SELECT 1
+                    FROM temporary_stocks
+                    WHERE temporary_stocks.spi_product_id = spi_products.id
+                    AND temporary_stocks.action_format = 'Spi'
+                ) as is_waiting_to_stock_out"),
             ])
             ->get();
     }

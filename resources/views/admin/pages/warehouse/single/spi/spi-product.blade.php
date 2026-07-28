@@ -247,7 +247,7 @@
             const requestedQty = parseFloat(qty || 0);
             
             if (requestedQty > availableQty) {
-                alert(`❌ Invalid Quantity!\n\nRequested: ${requestedQty}\nAvailable: ${availableQty}\n\nYou cannot save a quantity that exceeds available stock in PPI.`);
+                alert(`❌ Invalid Quantity!\n\nRequested: ${requestedQty}\n\nYou cannot save a quantity that exceeds available stock in PPI.`);
                 qtyInput.focus();
                 return;
             }

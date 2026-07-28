@@ -13,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use App\Models\TemporaryStock;
 use App\Helpers\Warehouse\PpiSpiHelper;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 /**
  * @Annotation
  */
@@ -66,95 +67,82 @@ class SpiProductController extends SingleWarehouseController
                     'message' => 'No products provided'
                 ], 400);
             }
+
+            DB::beginTransaction();
             
     //        dd($products);
             $busketInfo = $this->ppi_spi_history->arrangeSpiData($request->spi_id);
             $saveForTemporaryStock = [];
-            
-            // Check if user is Managers As SM (no quantity restrictions for this role)
-            $isManagersSM = DB::table('role_users')
-                ->join('roles', 'roles.id', '=', 'role_users.role_id')
-                ->where('role_users.user_id', auth()->user()->id)
-                ->where(function($query) {
-                    $query->where('roles.code', 'managers_as_sm')
-                        ->orWhere('roles.name', 'Managers As SM');
-                })
-                ->exists();
+            $requestedByPpiProductId = [];
             
             foreach($products as $key => $product){
-                // Skip validation for Managers As SM - they can add any quantity
-                if (!$isManagersSM) {
-                    // Get the PPI Product record
-                    $ppiProduct = DB::table('ppi_products')
-                        ->where('ppi_id', $product['ppi_id'])
-                        ->where('product_id', $product['product_id'])
-                        ->first();
-                    
-                    if (!$ppiProduct) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'PPI Product not found for product ID ' . $product['product_id']
-                        ], 404);
-                    }
-                    
-                    // Get the PPI (ppi_spi) record to get ppi_id
-                    $ppiSpi = $ppiProduct->ppi_id;  // This is the ppi_id from ppi_products table
-                    
-                    // FIRST CHECK: Exclude if this PPI has action_format='Ppi' in temporary_stocks
-                    $hasActionPpi = DB::table('temporary_stocks')
-                        ->where('ppi_spi_id', $ppiSpi)
-                        ->where('action_format', 'Ppi')
-                        ->exists();
-                    
-                    if ($hasActionPpi) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'This PPI cannot be selected because it has pending Ppi-format stock changes'
-                        ], 422);
-                    }
-                    
-                    // Calculate available quantity based on NEW LOGIC:
-                    // Available = Total PPI Qty - (waiting_stock_out + already_stocked_out)
-                    
-                    // Total in PPI
-                    $totalInPpi = (float)$ppiProduct->qty;
-                    
-                    // Get waiting_stock_out from temporary_stocks WHERE action_format='Spi' AND ppi_spi_id=ppi_id
-                    $waitingQty = (float)(DB::table('temporary_stocks')
-                        ->where('ppi_spi_id', $ppiSpi)
-                        ->where('action_format', 'Spi')
-                        ->sum('waiting_stock_out') ?? 0);
-                    
-                    // Get already stocked out qty from product_stocks WHERE action_format='Spi' AND ppi_spi_id=ppi_id
-                    $stockedOutQty = (float)(DB::table('product_stocks')
-                        ->where('ppi_spi_id', $ppiSpi)
-                        ->where('action_format', 'Spi')
-                        ->sum('qty') ?? 0);
-                    
-                    // Total reserved
-                    $totalReserved = $waitingQty + $stockedOutQty;
-                    
-                    // Condition: PPI.qty > totalReserved
-                    // Calculate available for display/validation
-                    $availableQty = $totalInPpi - $totalReserved;
-                    $requestedQty = (float)($product['qty'] ?? 0);
-                    
-                    // Only allow if total remains > 0 after adding this quantity
-                    if ($requestedQty > $availableQty) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Your requested quantity exceeds available quantity for this PPI. Try to split quantity in several PPIs'
-                        ], 422);
-                    }
+                $ppiProductId = (int)($product['ppi_product_id'] ?? 0);
+                $ppiId = (int)($product['ppi_id'] ?? 0);
+                $productId = (int)($product['product_id'] ?? 0);
+                $requestedQty = (float)($product['qty'] ?? 0);
+
+                $ppiProduct = DB::table('ppi_products')
+                    ->where('id', $ppiProductId)
+                    ->where('ppi_id', $ppiId)
+                    ->where('product_id', $productId)
+                    ->whereNull('deleted_at')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$ppiProduct) {
+                    throw ValidationException::withMessages([
+                        'product' => 'The selected PPI product is invalid or no longer available.'
+                    ]);
+                }
+
+                if ($requestedQty <= 0) {
+                    throw ValidationException::withMessages([
+                        'quantity' => 'Please enter a valid quantity.'
+                    ]);
+                }
+
+                $hasActionPpi = DB::table('temporary_stocks')
+                    ->where('ppi_spi_id', $ppiProduct->ppi_id)
+                    ->where('action_format', 'Ppi')
+                    ->exists();
+
+                if ($hasActionPpi) {
+                    throw ValidationException::withMessages([
+                        'product' => 'This PPI cannot be selected because it has pending PPI stock changes.'
+                    ]);
+                }
+
+                $waitingQty = (float)DB::table('temporary_stocks as temporary_stock')
+                    ->join('spi_products as spi_product', 'spi_product.id', '=', 'temporary_stock.spi_product_id')
+                    ->where('spi_product.ppi_id', $ppiProduct->ppi_id)
+                    ->where('spi_product.product_id', $ppiProduct->product_id)
+                    ->where('temporary_stock.action_format', 'Spi')
+                    ->sum('temporary_stock.waiting_stock_out');
+
+                $stockedOutQty = (float)DB::table('product_stocks as product_stock')
+                    ->join('spi_products as spi_product', 'spi_product.id', '=', 'product_stock.ppi_spi_product_id')
+                    ->where('spi_product.ppi_id', $ppiProduct->ppi_id)
+                    ->where('spi_product.product_id', $ppiProduct->product_id)
+                    ->where('product_stock.action_format', 'Spi')
+                    ->where('product_stock.stock_action', 'Out')
+                    ->sum('product_stock.qty');
+
+                $availableQty = max(0, (float)$ppiProduct->qty - $waitingQty - $stockedOutQty);
+                $requestedByPpiProductId[$ppiProduct->id] = ($requestedByPpiProductId[$ppiProduct->id] ?? 0) + $requestedQty;
+
+                if ($requestedByPpiProductId[$ppiProduct->id] > $availableQty) {
+                    throw ValidationException::withMessages([
+                        'quantity' => 'Your requested quantity exceeds the available quantity (' . $availableQty . ') for PPI ' . $ppiProduct->ppi_id . '.'
+                    ]);
                 }
 
                 $attr =  [
                     'spi_id' => $request->spi_id,
                     'warehouse_id' => request()->get('warehouse_id'),
                     'from_warehouse' => $product['from_warehouse'] ?? null,
-                    'product_id' => $product['product_id'],
-                    'ppi_product_id' => $product['ppi_product_id'] ?? $product['ppi_id'] ?? null,
-                    'ppi_id' => $product['ppi_id'] ?? null,
+                    'product_id' => $ppiProduct->product_id,
+                    'ppi_product_id' => $ppiProduct->id,
+                    'ppi_id' => $ppiProduct->ppi_id,
                     'bundle_id' => $product['bundle_id'] ?? null,
                     'qty' => $product['qty'],
                     'unit_price' => $product['unit_price'] ?? 0,
@@ -170,7 +158,7 @@ class SpiProductController extends SingleWarehouseController
                 //Store data for temporary stock
                 $saveForTemporaryStock []= [
                     'action_format' => 'Spi',
-                    'product_id' => $product['product_id'],
+                    'product_id' => $ppiProduct->product_id,
                     'ppi_spi_id' =>  $request->spi_id,
                     'ppi_product_id' => $attr['ppi_product_id'],  // ✓ Use actual ppi_product_id from attributes
                     'spi_product_id' => $spi_product->id,
@@ -340,13 +328,28 @@ class SpiProductController extends SingleWarehouseController
                 $html .= '</tr>';
             }
 
+            DB::commit();
+
             return response()->json([
                 'success' => true, 
                 'status' => 1, 
                 'message' => 'Successfully product added',
                 'html' => $html
             ]);
+        } catch (ValidationException $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first()
+            ], 422);
         } catch (\Exception $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+
             \Log::error('SPI Product Store Error', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
@@ -403,47 +406,58 @@ class SpiProductController extends SingleWarehouseController
                 ], 403);
             }
 
-            // Check if user is Managers As SM (no quantity restrictions for this role)
-            $isManagersSM = DB::table('role_users')
-                ->join('roles', 'roles.id', '=', 'role_users.role_id')
-                ->where('role_users.user_id', auth()->user()->id)
-                ->where(function($query) {
-                    $query->where('roles.code', 'managers_as_sm')
-                        ->orWhere('roles.name', 'Managers As SM');
-                })
-                ->exists();
+            DB::beginTransaction();
+            $spiProduct = $this->model::lockForUpdate()->findOrFail($spi_product_id);
 
-            // Skip validation for Managers As SM - they can update to any quantity
-            if (!$isManagersSM) {
-                // Get the PPI Product record to validate quantities
-                $ppiProduct = DB::table('ppi_products')
-                    ->where('ppi_id', $spiProduct->ppi_id)
-                    ->where('product_id', $spiProduct->product_id)
-                    ->first();
-                
-                if ($ppiProduct) {
-                    // Calculate available quantity using same formula as store()
-                    $totalInPpi = (float)$ppiProduct->qty;
-                    
-                    // Get already stocked out qty (confirmed only)
-                    // Only count product_stocks, not temporary_stocks (pending will move to product_stocks later)
-                    $stockedOutQty = (float)(DB::table('product_stocks')
-                        ->where('ppi_spi_product_id', $ppiProduct->id)
-                        ->where('stock_action', 'out')
-                        ->sum('qty') ?? 0);
-                    
-                    // Available qty = Total - confirmed stocked out
-                    // Don't include temporary_stocks pending as they will be moved to product_stocks later
-                    $availableQty = max(0, $totalInPpi - $stockedOutQty);
-                    $requestedQty = (float)($qty ?? 0);
-                    
-                    if ($requestedQty > $availableQty) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Your requested quantity (' . $requestedQty . ') exceeds available quantity (' . $availableQty . '). Total in PPI: ' . $totalInPpi . ', Already used: ' . $usedQty
-                        ], 422);
-                    }
-                }
+            $requestedQty = (float)($qty ?? 0);
+            if ($requestedQty <= 0) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Please enter a valid quantity.'
+                ], 422);
+            }
+
+            $ppiProduct = DB::table('ppi_products')
+                ->where('id', $spiProduct->ppi_product_id)
+                ->where('ppi_id', $spiProduct->ppi_id)
+                ->where('product_id', $spiProduct->product_id)
+                ->whereNull('deleted_at')
+                ->lockForUpdate()
+                ->first();
+
+            if (!$ppiProduct) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The source PPI product is invalid or no longer available.'
+                ], 422);
+            }
+
+            $waitingQty = (float)DB::table('temporary_stocks as temporary_stock')
+                ->join('spi_products as spi_product', 'spi_product.id', '=', 'temporary_stock.spi_product_id')
+                ->where('spi_product.ppi_id', $ppiProduct->ppi_id)
+                ->where('spi_product.product_id', $ppiProduct->product_id)
+                ->where('temporary_stock.action_format', 'Spi')
+                ->where('temporary_stock.spi_product_id', '!=', $spiProduct->id)
+                ->sum('temporary_stock.waiting_stock_out');
+
+            $stockedOutQty = (float)DB::table('product_stocks as product_stock')
+                ->join('spi_products as spi_product', 'spi_product.id', '=', 'product_stock.ppi_spi_product_id')
+                ->where('spi_product.ppi_id', $ppiProduct->ppi_id)
+                ->where('spi_product.product_id', $ppiProduct->product_id)
+                ->where('product_stock.action_format', 'Spi')
+                ->where('product_stock.stock_action', 'Out')
+                ->sum('product_stock.qty');
+
+            $availableQty = max(0, (float)$ppiProduct->qty - $waitingQty - $stockedOutQty);
+
+            if ($requestedQty > $availableQty) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Your requested quantity exceeds the available quantity (' . $availableQty . ') for PPI ' . $ppiProduct->ppi_id . '.'
+                ], 422);
             }
 
             $spiProduct->update([
@@ -463,11 +477,17 @@ class SpiProductController extends SingleWarehouseController
                     'updated_at' => Carbon::now()
                 ]);
 
+            DB::commit();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Product updated successfully'
             ]);
         } catch (\Exception $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+
             \Log::error('SpiProduct update error: ' . $e->getMessage());
             \Log::error('Stack: ' . $e->getTraceAsString());
             return response()->json([

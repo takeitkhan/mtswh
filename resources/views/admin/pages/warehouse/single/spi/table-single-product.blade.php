@@ -16,8 +16,7 @@
         <!-- Skip set products -->
     @else
         @php
-            // Pre-calculate stock for this row - moved before tr tag
-            $stockInHand = 'N/A';
+            // The current row's own waiting quantity is excluded so it can be edited up to the remaining PPI allocation.
             $stockNumeric = 0;
             $debugInfo = [
                 'ppi_id' => $product->ppi_id ?? 'NULL',
@@ -25,48 +24,43 @@
                 'ppi_product_id' => $product->ppi_product_id ?? 'NULL',
                 'qty_requested' => $product->qty ?? 0
             ];
-            
-            // Try ppi_product_id first (direct ID from ppi_products table)
-            if($product->ppi_product_id) {
-                $ppiProduct = DB::table('ppi_products')
-                    ->where('id', $product->ppi_product_id)
-                    ->first();
-                
-                if($ppiProduct) {
-                    $stockInHand = $ppiProduct->qty ?? 'N/A';
-                    $stockNumeric = (int)($ppiProduct->qty ?? 0);
-                    $debugInfo['found'] = true;
-                    $debugInfo['stock'] = $stockNumeric;
-                    $debugInfo['lookup_method'] = 'ppi_product_id';
-                } else {
-                    $debugInfo['found'] = false;
-                    $debugInfo['note'] = 'ppi_product_id lookup failed';
-                }
-            } 
-            // Fallback to ppi_id + product_id
-            else if($product->ppi_id) {
-                $ppiProduct = DB::table('ppi_products')
-                    ->where('ppi_id', $product->ppi_id)
-                    ->where('product_id', $product->product_id)
-                    ->first();
-                
-                if($ppiProduct) {
-                    $stockInHand = $ppiProduct->qty ?? 'N/A';
-                    $stockNumeric = (int)($ppiProduct->qty ?? 0);
-                    $debugInfo['found'] = true;
-                    $debugInfo['stock'] = $stockNumeric;
-                    $debugInfo['lookup_method'] = 'ppi_id + product_id';
-                } else {
-                    $debugInfo['found'] = false;
-                    $debugInfo['note'] = 'No PPI product found with ppi_id + product_id';
-                }
+
+            $ppiProduct = DB::table('ppi_products')
+                ->where('ppi_id', $product->ppi_id)
+                ->where('product_id', $product->product_id)
+                ->whereNull('deleted_at')
+                ->first();
+
+            if ($ppiProduct) {
+                $waitingQty = (float)DB::table('temporary_stocks as temporary_stock')
+                    ->join('spi_products as spi_product', 'spi_product.id', '=', 'temporary_stock.spi_product_id')
+                    ->where('spi_product.ppi_id', $ppiProduct->ppi_id)
+                    ->where('spi_product.product_id', $ppiProduct->product_id)
+                    ->where('temporary_stock.action_format', 'Spi')
+                    ->where('temporary_stock.spi_product_id', '!=', $product->id)
+                    ->sum('temporary_stock.waiting_stock_out');
+
+                $stockedOutQty = (float)DB::table('product_stocks as product_stock')
+                    ->join('spi_products as spi_product', 'spi_product.id', '=', 'product_stock.ppi_spi_product_id')
+                    ->where('spi_product.ppi_id', $ppiProduct->ppi_id)
+                    ->where('spi_product.product_id', $ppiProduct->product_id)
+                    ->where('product_stock.action_format', 'Spi')
+                    ->where('product_stock.stock_action', 'Out')
+                    ->sum('product_stock.qty');
+
+                $stockNumeric = max(0, (float)$ppiProduct->qty - $waitingQty - $stockedOutQty);
+                $debugInfo['found'] = true;
+                $debugInfo['stock'] = $stockNumeric;
+                $debugInfo['waiting_other_rows'] = $waitingQty;
+                $debugInfo['stocked_out'] = $stockedOutQty;
             } else {
-                $debugInfo['note'] = 'No ppi_product_id or ppi_id';
+                $debugInfo['found'] = false;
+                $debugInfo['note'] = 'No PPI product found with ppi_id + product_id';
             }
             
         @endphp
 
-        <tr class="pr_row_{{$product->id}} {{$product->any_warning_cls}}" data-product-id="{{ $product->id }}" data-stock-available="{{ $stockNumeric }}" data-ppi-id="{{ $product->ppi_id }}" data-product-id-fk="{{ $product->product_id }}" data-debug="{{ json_encode($debugInfo) }}">
+        <tr class="pr_row_{{$product->id}} {{$product->any_warning_cls}}" data-product-id="{{ $product->id }}" data-available-qty="{{ $stockNumeric }}" data-ppi-id="{{ $product->ppi_id }}" data-product-id-fk="{{ $product->product_id }}" data-debug="{{ json_encode($debugInfo) }}">
             <!-- Delete & Edit Buttons -->
             <td>
                 @php

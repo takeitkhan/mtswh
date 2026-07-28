@@ -505,34 +505,35 @@ class SpiController extends SingleWarehouseController
                 return in_array($ppi->ppi_id, $ppisInTemporaryWithActionPpi);
             });
 
-            // SECOND FILTER: For remaining PPIs, calculate available quantity
-            // Get waiting_stock_out from temporary_stocks (action_format='Spi' only)
-            $ppiSpiIds = $ppis->pluck('ppi_id')->all();
-            $waitingStockOutByPpiSpiId = [];
+            // SECOND FILTER: For remaining PPI products, calculate available quantity
+            $ppiIds = $ppis->pluck('ppi_id')->all();
+            $waitingStockOutByPpiId = [];
             
-            if (!empty($ppiSpiIds)) {
-                // Get waiting_stock_out from temporary_stocks WHERE action_format='Spi' AND ppi_spi_id=X
-                $waitingStock = DB::table('temporary_stocks')
-                    ->whereIn('ppi_spi_id', $ppiSpiIds)
-                    ->where('action_format', 'Spi')
-                    ->groupBy('ppi_spi_id')
-                    ->selectRaw('ppi_spi_id, SUM(waiting_stock_out) as waiting_qty')
-                    ->pluck('waiting_qty', 'ppi_spi_id');
-                $waitingStockOutByPpiSpiId = $waitingStock->toArray();
+            if (!empty($ppiIds)) {
+                $waitingStock = DB::table('temporary_stocks as temporary_stock')
+                    ->join('spi_products as spi_product', 'spi_product.id', '=', 'temporary_stock.spi_product_id')
+                    ->whereIn('spi_product.ppi_id', $ppiIds)
+                    ->where('spi_product.product_id', $product_id)
+                    ->where('temporary_stock.action_format', 'Spi')
+                    ->groupBy('spi_product.ppi_id')
+                    ->selectRaw('spi_product.ppi_id, SUM(temporary_stock.waiting_stock_out) as waiting_qty')
+                    ->pluck('waiting_qty', 'spi_product.ppi_id');
+                $waitingStockOutByPpiId = $waitingStock->toArray();
             }
 
-            // Get already stocked out from product_stocks (action_format='Spi' only)
-            $stockedOutByPpiSpiId = [];
+            $stockedOutByPpiId = [];
             
-            if (!empty($ppiSpiIds)) {
-                // Get already stocked out from product_stocks WHERE action_format='Spi' AND ppi_spi_id=X
-                $stockedOut = DB::table('product_stocks')
-                    ->whereIn('ppi_spi_id', $ppiSpiIds)
-                    ->where('action_format', 'Spi')
-                    ->groupBy('ppi_spi_id')
-                    ->selectRaw('ppi_spi_id, SUM(qty) as stocked_out_qty')
-                    ->pluck('stocked_out_qty', 'ppi_spi_id');
-                $stockedOutByPpiSpiId = $stockedOut->toArray();
+            if (!empty($ppiIds)) {
+                $stockedOut = DB::table('product_stocks as product_stock')
+                    ->join('spi_products as spi_product', 'spi_product.id', '=', 'product_stock.ppi_spi_product_id')
+                    ->whereIn('spi_product.ppi_id', $ppiIds)
+                    ->where('spi_product.product_id', $product_id)
+                    ->where('product_stock.action_format', 'Spi')
+                    ->where('product_stock.stock_action', 'Out')
+                    ->groupBy('spi_product.ppi_id')
+                    ->selectRaw('spi_product.ppi_id, SUM(product_stock.qty) as stocked_out_qty')
+                    ->pluck('stocked_out_qty', 'spi_product.ppi_id');
+                $stockedOutByPpiId = $stockedOut->toArray();
             }
 
             $ppiList = [];
@@ -544,10 +545,8 @@ class SpiController extends SingleWarehouseController
                     $warehouseName = $ppi->ppiSpi->warehouse->name;
                 }
 
-                // Calculate reserved quantities using ppi_spi_id (not ppi_product_id)
-                // Only considering action_format='Spi' entries
-                $waitingQty = (float) ($waitingStockOutByPpiSpiId[$ppi->ppi_id] ?? 0);
-                $stockedOutQty = (float) ($stockedOutByPpiSpiId[$ppi->ppi_id] ?? 0);
+                $waitingQty = (float) ($waitingStockOutByPpiId[$ppi->ppi_id] ?? 0);
+                $stockedOutQty = (float) ($stockedOutByPpiId[$ppi->ppi_id] ?? 0);
                 $totalInPpi = (float) ($ppi->quantity_in_stock ?? 0);
                 
                 // Total reserved = waiting_stock_out (Spi) + already_stocked_out (Spi)

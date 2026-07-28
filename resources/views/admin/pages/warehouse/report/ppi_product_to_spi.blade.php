@@ -84,7 +84,7 @@
                             $getSpi = $Model('PpiSpi')::with('source')->where('id', $item->spi_id)->first();
                             $warehouse_code = $Model('Warehouse')::getColumn($getSpi->warehouse_id, 'code');
                         @endphp
-                        <tr>
+                        <tr class="{{$item->is_waiting_to_stock_out ? 'table-warning' : null}}">
                             <td>{{$item->ppi_id}}</td>
                             <td>{{$item->spi_id}}</td>
                             <td>{{$item->project}}</td>
